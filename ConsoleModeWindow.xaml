@@ -1,0 +1,194 @@
+<Window x:Class="ApertureOS.ConsoleModeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Aperture Portal - Console Mode"
+        Icon="Assets/AppIcon.ico"
+        WindowStyle="None"
+        WindowState="Maximized"
+        ResizeMode="NoResize"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Cursor="None"
+        UseLayoutRounding="True"
+        Loaded="Window_Loaded"
+        Closed="Window_Closed"
+        SizeChanged="Window_SizeChanged"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Console Mode" FontSize="30" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+            <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" HorizontalAlignment="Right"
+                       FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"
+                       Text="A / Enter: Launch     B / Esc: Back     LB/RB: Filter"/>
+        </DockPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,20">
+            <!-- No IsChecked="True" here (unlike the desktop window's tabs): FilterTab_Checked needs
+                 _owner and GameListBox, and this window's own Checked event would otherwise fire
+                 mid-InitializeComponent, before either exists. SyncFilterTabToOwner checks the right
+                 tab explicitly once the window has actually finished loading. -->
+            <RadioButton x:Name="FilterInstalledButton" Content="Installed" Tag="Installed" GroupName="ConsoleLibraryFilter"
+                         Style="{StaticResource FilterTabStyle}" Checked="FilterTab_Checked"/>
+            <RadioButton x:Name="FilterRecentButton" Content="Recently Played" Tag="RecentlyPlayed" GroupName="ConsoleLibraryFilter"
+                         Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="FilterTab_Checked"/>
+            <RadioButton x:Name="FilterAllButton" Content="All" Tag="All" GroupName="ConsoleLibraryFilter"
+                         Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="FilterTab_Checked"/>
+            <RadioButton x:Name="FilterNotInstalledButton" Content="Not Installed" Tag="NotInstalled" GroupName="ConsoleLibraryFilter"
+                         Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="FilterTab_Checked"/>
+        </StackPanel>
+
+        <ListBox x:Name="GameListBox" Grid.Row="2" Background="Transparent" BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                 KeyboardNavigation.DirectionalNavigation="None"
+                 Focusable="False">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <!-- Centered so leftover width (columns * slot width rarely fills the row exactly)
+                         splits evenly on both sides instead of piling up on the right. Set here on the
+                         WrapPanel itself rather than on GameListBox, since UpdateColumns() reads
+                         GameListBox.ActualWidth and needs that to stay the full viewport width. -->
+                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Focusable" Value="True"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="SelectionBorder" Margin="10" Padding="6"
+                                        BorderThickness="3" BorderBrush="Transparent"
+                                        CornerRadius="14">
+                                    <ContentPresenter/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border Width="210" Height="330" Background="{StaticResource SurfaceBrush}">
+                        <Border.Clip>
+                            <RectangleGeometry Rect="0,0,210,330" RadiusX="12" RadiusY="12"/>
+                        </Border.Clip>
+                        <StackPanel>
+                            <Grid Width="210" Height="288" ClipToBounds="True">
+                                <Image Source="{Binding CoverImagePath}" Width="210" Height="288" Stretch="UniformToFill">
+                                    <Image.Effect>
+                                        <BlurEffect x:Name="CoverBlur" Radius="0"/>
+                                    </Image.Effect>
+                                </Image>
+                                <Border x:Name="Scrim" Background="#99000000" Opacity="0"/>
+
+                                <!-- Mirrors MainWindow's tile badge: only the less-common platforms
+                                     (Epic/GOG/Battle.net/Xbox) show one, Steam/Manual stay quiet. -->
+                                <Border Background="#CC000000" CornerRadius="4" Panel.ZIndex="5"
+                                        Padding="6,3" Margin="8,8,0,0"
+                                        HorizontalAlignment="Left" VerticalAlignment="Top"
+                                        Visibility="{Binding ShowPlatformBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding PlatformBadgeText}" FontSize="11" FontWeight="Bold"
+                                               Foreground="White"/>
+                                </Border>
+
+                                <Border x:Name="PlayBadge" Width="64" Height="64" CornerRadius="32"
+                                        Background="{StaticResource AccentBrush}" Opacity="0"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Path Data="M 0,0 L 0,24 L 20,12 Z" Fill="White"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Margin="5,0,0,0"/>
+                                </Border>
+
+                                <!-- Not-yet-installed Steam games: persistent badge (mirrors MainWindow's
+                                     tile) so the cover art stays visible instead of being fully covered. -->
+                                <Border x:Name="InstallBadge" Width="64" Height="64" CornerRadius="32"
+                                        Background="#CC000000" Panel.ZIndex="5"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Visibility="{Binding ShowInstallOverlay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Grid>
+                                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="22"
+                                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Visibility="{Binding ShowInstallIcon, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        <TextBlock Text="Installing" FontSize="12"
+                                                   FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Visibility="{Binding ShowDownloadProgress, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    </Grid>
+                                </Border>
+                                <Border Height="6" VerticalAlignment="Bottom" Background="#33FFFFFF" Panel.ZIndex="5"
+                                        ClipToBounds="True"
+                                        Visibility="{Binding ShowDownloadProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Border Width="80" Height="6" Background="{StaticResource AccentBrush}" HorizontalAlignment="Left">
+                                        <Border.RenderTransform>
+                                            <TranslateTransform x:Name="LoadingBarTranslate" X="-80"/>
+                                        </Border.RenderTransform>
+                                        <Border.Triggers>
+                                            <EventTrigger RoutedEvent="Loaded">
+                                                <BeginStoryboard>
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetName="LoadingBarTranslate" Storyboard.TargetProperty="X"
+                                                                         From="-80" To="210" Duration="0:0:1.1"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                        </Border.Triggers>
+                                    </Border>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14"
+                                       FontWeight="SemiBold" HorizontalAlignment="Center" Margin="6,8,6,6"
+                                       TextTrimming="CharacterEllipsis" TextAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="CoverBlur" Storyboard.TargetProperty="Radius"
+                                                         To="6" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="PlayBadge" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="CoverBlur" Storyboard.TargetProperty="Radius"
+                                                         To="0" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="PlayBadge" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</Window>

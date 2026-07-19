@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+publish/
+installer-output/
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+
+# Installer build tooling artifacts
+*.iobj
+*.ipdb
+
+# Local Claude Code tooling state
+.claude/

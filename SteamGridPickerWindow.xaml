@@ -1,0 +1,131 @@
+<Window x:Class="ApertureOS.SteamGridPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        Title="Find Art" Height="600" Width="720"
+        Icon="Assets/AppIcon.ico"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        UseLayoutRounding="True"
+        Background="{StaticResource WindowBackgroundBrush}">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <DataTemplate x:Key="CoverThumbTemplate">
+            <Button Width="120" Height="180" Margin="6" Padding="0" BorderThickness="0"
+                    Background="{StaticResource SurfaceBrush}" Cursor="Hand"
+                    FocusVisualStyle="{x:Null}" Click="ImageOption_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" BorderThickness="2" BorderBrush="Transparent"
+                                CornerRadius="6" ClipToBounds="True">
+                            <Image Source="{Binding ThumbUrl}" Stretch="UniformToFill"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate x:Key="HeaderThumbTemplate">
+            <Button Width="230" Height="80" Margin="6" Padding="0" BorderThickness="0"
+                    Background="{StaticResource SurfaceBrush}" Cursor="Hand"
+                    FocusVisualStyle="{x:Null}" Click="ImageOption_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" BorderThickness="2" BorderBrush="Transparent"
+                                CornerRadius="6" ClipToBounds="True">
+                            <Image Source="{Binding ThumbUrl}" Stretch="UniformToFill"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MatchPillTemplate">
+            <Button Content="{Binding Name}" Height="30" Margin="0,0,8,8" Padding="12,0"
+                    FontSize="12" Click="MatchOption_Click"/>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Custom title bar -->
+            <Grid Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock x:Name="HeaderText" Text="Find Art" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <Button Content="&#xE8BB;" Style="{StaticResource TitleBarCloseButtonStyle}"
+                        HorizontalAlignment="Right" Click="Cancel_Click"/>
+            </Grid>
+
+            <!-- Content -->
+            <Grid Grid.Row="1" Margin="24,20,24,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Search bar -->
+                <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                    <Button x:Name="SearchButton" Content="Search" Width="90" DockPanel.Dock="Right"
+                            Click="Search_Click" IsDefault="True"/>
+                    <TextBox x:Name="SearchTextBox" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+                </DockPanel>
+
+                <!-- Matching games -->
+                <ItemsControl x:Name="MatchesItemsControl" Grid.Row="1" Margin="0,0,0,4"
+                              ItemTemplate="{StaticResource MatchPillTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+
+                <!-- Art results -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="StatusText" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" Margin="0,8,0,8"/>
+                        <ItemsControl x:Name="ImagesItemsControl">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Action buttons -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <Button Content="Cancel" Width="96" Height="34" Click="Cancel_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

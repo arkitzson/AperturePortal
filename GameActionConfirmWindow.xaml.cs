@@ -1,0 +1,122 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using ApertureOS.Models;
+using ApertureOS.Services;
+
+namespace ApertureOS;
+
+/// <summary>
+/// Small "Install this game?" / "Launch this game?" confirmation, used identically from the normal
+/// mouse-driven window and gamepad-driven Console Mode. Left/Right switches focus between the two
+/// buttons and A activates whichever is focused, mirroring OverlayWindow's pause-menu pattern -
+/// necessary because gamepad state is polled directly from XInput rather than routed through WPF's
+/// normal focus system, so it needs its own input loop instead of just relying on IsDefault/IsCancel.
+/// </summary>
+public partial class GameActionConfirmWindow : Window
+{
+    private readonly DispatcherTimer _inputTimer = new(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(100) };
+    private readonly GamepadEdge _leftEdge = new();
+    private readonly GamepadEdge _rightEdge = new();
+    private readonly GamepadEdge _confirmEdge = new();
+    private readonly GamepadEdge _cancelEdge = new();
+
+    // Only the buttons actually shown - info-only mode (see below) collapses CancelButton, and a
+    // collapsed button should never be a valid Left/Right landing spot for the gamepad loop.
+    private Button[] Buttons => new[] { ConfirmButton, CancelButton }.Where(b => b.Visibility == Visibility.Visible).ToArray();
+
+    /// <summary>
+    /// Normal "Install/Launch this game?" confirmation with both buttons. The gamepad button-legend
+    /// hint only makes sense in Console Mode - the desktop window is a mouse/keyboard surface (it
+    /// still quietly accepts gamepad input underneath, since the desktop grid itself does too, but
+    /// doesn't advertise it) - so isConsoleMode controls whether that hint line shows at all.
+    /// </summary>
+    public GameActionConfirmWindow(Game game, string actionVerb, bool isConsoleMode)
+        : this(game, $"{actionVerb} \"{game.Name}\"?", actionVerb, infoOnly: false, isConsoleMode)
+    {
+    }
+
+    /// <summary>
+    /// Info-only variant with just a single dismiss button - used when a game is already mid-download,
+    /// so pressing its tile again explains that instead of re-offering to install it from scratch.
+    /// </summary>
+    public static GameActionConfirmWindow CreateInfoOnly(Game game, string message, bool isConsoleMode) =>
+        new(game, message, "OK", infoOnly: true, isConsoleMode);
+
+    private GameActionConfirmWindow(Game game, string message, string confirmButtonText, bool infoOnly, bool isConsoleMode)
+    {
+        InitializeComponent();
+
+        MessageText.Text = message;
+        ConfirmButton.Content = confirmButtonText;
+        if (infoOnly)
+        {
+            CancelButton.Visibility = Visibility.Collapsed;
+        }
+
+        HintText.Visibility = isConsoleMode ? Visibility.Visible : Visibility.Collapsed;
+        if (isConsoleMode && infoOnly)
+        {
+            HintText.Text = "A or B to close";
+        }
+
+        if (File.Exists(game.CoverImagePath))
+        {
+            CoverImage.Source = new BitmapImage(new Uri(game.CoverImagePath));
+        }
+
+        Loaded += (_, _) =>
+        {
+            ConfirmButton.Focus();
+            _inputTimer.Start();
+        };
+        Closed += (_, _) => _inputTimer.Stop();
+        _inputTimer.Tick += InputTimer_Tick;
+    }
+
+    private void InputTimer_Tick(object? sender, EventArgs e)
+    {
+        var pad = GamepadService.Poll();
+        _leftEdge.Update(pad.Left, () => MoveSelection(-1));
+        _rightEdge.Update(pad.Right, () => MoveSelection(1));
+        _confirmEdge.Update(pad.A, ActivateFocusedButton);
+        _cancelEdge.Update(pad.B, () =>
+        {
+            DialogResult = false;
+            Close();
+        });
+    }
+
+    private void MoveSelection(int direction)
+    {
+        var buttons = Buttons;
+        int currentIndex = Array.IndexOf(buttons, Keyboard.FocusedElement as Button);
+        int newIndex = Math.Clamp((currentIndex < 0 ? 0 : currentIndex) + direction, 0, buttons.Length - 1);
+        buttons[newIndex].Focus();
+    }
+
+    private static void ActivateFocusedButton()
+    {
+        if (Keyboard.FocusedElement is Button button)
+        {
+            ((IInvokeProvider)new ButtonAutomationPeer(button)).Invoke();
+        }
+    }
+
+    private void ConfirmButton_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = true;
+        Close();
+    }
+
+    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+        Close();
+    }
+}

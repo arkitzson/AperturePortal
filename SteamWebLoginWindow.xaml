@@ -1,0 +1,47 @@
+<Window x:Class="ApertureOS.SteamWebLoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        mc:Ignorable="d"
+        Title="Log in to Steam" Height="760" Width="480"
+        Icon="Assets/AppIcon.ico"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        UseLayoutRounding="True"
+        Background="{StaticResource WindowBackgroundBrush}">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Custom title bar -->
+            <Grid Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock Text="Log in to Steam" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <Button Content="&#xE8BB;" Style="{StaticResource TitleBarCloseButtonStyle}"
+                        HorizontalAlignment="Right" Click="Cancel_Click"/>
+            </Grid>
+
+            <!-- Embedded Steam sign-in page -->
+            <Grid Grid.Row="1">
+                <wv2:WebView2 x:Name="LoginWebView"/>
+                <TextBlock x:Name="StatusOverlayText" Text="Loading Steam sign-in..."
+                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
