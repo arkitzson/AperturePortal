@@ -74,7 +74,7 @@
                 <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Vertical" Margin="0,0,16,16">
                     <TextBlock Text="Game Executable" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
                     <DockPanel>
-                        <Button Content="Browse..." Width="84" DockPanel.Dock="Right" Click="BrowseExe_Click"/>
+                        <Button Content="Browse..." MinWidth="84" DockPanel.Dock="Right" Click="BrowseExe_Click"/>
                         <TextBox x:Name="ExePathTextBox" Margin="0,0,8,0" IsReadOnly="True"/>
                     </DockPanel>
                 </StackPanel>
@@ -83,8 +83,8 @@
                 <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Vertical" Margin="0,0,16,16">
                     <TextBlock Text="Cover Image (600x900 recommended)" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
                     <DockPanel>
-                        <Button Content="Browse..." Width="84" DockPanel.Dock="Right" Click="BrowseImage_Click"/>
-                        <Button Content="Find Art..." Width="84" DockPanel.Dock="Right" Margin="0,0,8,0" Click="FindCoverArt_Click"/>
+                        <Button Content="Browse..." MinWidth="84" DockPanel.Dock="Right" Click="BrowseImage_Click"/>
+                        <Button Content="Find Art..." MinWidth="84" DockPanel.Dock="Right" Margin="0,0,8,0" Click="FindCoverArt_Click"/>
                         <TextBox x:Name="ImagePathTextBox" Margin="0,0,8,0" IsReadOnly="True"/>
                     </DockPanel>
                 </StackPanel>
@@ -102,8 +102,8 @@
                     <TextBlock Text="Header Image (1920x620 recommended, optional)" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
                     <DockPanel>
-                        <Button Content="Browse..." Width="84" DockPanel.Dock="Right" Click="BrowseHeaderImage_Click"/>
-                        <Button Content="Find Art..." Width="84" DockPanel.Dock="Right" Margin="0,0,8,0" Click="FindHeaderArt_Click"/>
+                        <Button Content="Browse..." MinWidth="84" DockPanel.Dock="Right" Click="BrowseHeaderImage_Click"/>
+                        <Button Content="Find Art..." MinWidth="84" DockPanel.Dock="Right" Margin="0,0,8,0" Click="FindHeaderArt_Click"/>
                         <TextBox x:Name="HeaderImagePathTextBox" Margin="0,0,8,0" IsReadOnly="True"/>
                     </DockPanel>
                 </StackPanel>

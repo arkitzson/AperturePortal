@@ -75,8 +75,8 @@
                     <!-- Logged in -->
                     <StackPanel x:Name="SteamLoggedInPanel" Visibility="Collapsed">
                         <DockPanel>
-                            <Button x:Name="SteamLogoutButton" Content="Log out" Height="34" Width="96"
-                                    DockPanel.Dock="Right" Click="SteamLogoutButton_Click"/>
+                            <Button x:Name="SteamLogoutButton" Content="Log out" Height="34" MinWidth="96"
+                                    Padding="16,0" DockPanel.Dock="Right" Click="SteamLogoutButton_Click"/>
                             <TextBlock x:Name="SteamIdText" FontSize="13" VerticalAlignment="Center"
                                        Foreground="{StaticResource TextPrimaryBrush}"/>
                         </DockPanel>
@@ -127,7 +127,7 @@
                         <Button x:Name="SyncEpicButton" Content="Sync Epic Games Library" Height="34"
                                 Padding="16,0" Style="{StaticResource AccentButtonStyle}"
                                 Click="SyncEpicButton_Click"/>
-                        <Button x:Name="RemoveEpicButton" Content="Remove" Height="34" Width="80"
+                        <Button x:Name="RemoveEpicButton" Content="Remove" Height="34" MinWidth="80"
                                 Padding="16,0" Margin="10,0,0,0" Click="RemoveEpicLibraryButton_Click"/>
                     </StackPanel>
                     <TextBlock x:Name="EpicSyncStatusText" FontSize="11"
@@ -138,7 +138,7 @@
                         <Button x:Name="SyncGogButton" Content="Sync GOG Library" Height="34"
                                 Padding="16,0" Style="{StaticResource AccentButtonStyle}"
                                 Click="SyncGogButton_Click"/>
-                        <Button x:Name="RemoveGogButton" Content="Remove" Height="34" Width="80"
+                        <Button x:Name="RemoveGogButton" Content="Remove" Height="34" MinWidth="80"
                                 Padding="16,0" Margin="10,0,0,0" Click="RemoveGogLibraryButton_Click"/>
                     </StackPanel>
                     <TextBlock x:Name="GogSyncStatusText" FontSize="11"
