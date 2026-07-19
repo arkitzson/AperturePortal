@@ -13,14 +13,17 @@ AppId={{B3B6E1B7-6C2A-4E3C-9E60-1B1F9A8F2C4D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-; Per-user install under LocalAppData - no admin/UAC prompt needed, matching how the app
-; already manages its own "start with Windows" registry entry on a per-user basis.
-; Hardcoded rather than {autopf}: that constant falls back to Program Files whenever Setup
-; ends up with an elevated token (e.g. launched via "Run as administrator"), which then hits
-; Access Denied writing there since PrivilegesRequired=lowest never actually requests admin.
-DefaultDirName={localappdata}\Programs\{#MyAppName}
+; Defaults to a per-user install under LocalAppData - no admin/UAC prompt needed, matching
+; how the app already manages its own "start with Windows" registry entry on a per-user
+; basis - but PrivilegesRequiredOverridesAllowed lets someone opt into a machine-wide
+; Program Files install instead, via the mode-selection page. Without that directive,
+; PrivilegesRequired=lowest silently never requests elevation, so if {autopf} pointed at
+; Program Files (which it does whenever Setup happens to already hold an elevated token)
+; the install would hit Access Denied instead of prompting for admin rights.
+DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\installer-output
@@ -44,8 +47,8 @@ Source: "..\publish\ApertureOS.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\publish\ApertureOS.pdb"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{userprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
