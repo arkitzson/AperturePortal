@@ -15,7 +15,10 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 ; Per-user install under LocalAppData - no admin/UAC prompt needed, matching how the app
 ; already manages its own "start with Windows" registry entry on a per-user basis.
-DefaultDirName={autopf}\{#MyAppName}
+; Hardcoded rather than {autopf}: that constant falls back to Program Files whenever Setup
+; ends up with an elevated token (e.g. launched via "Run as administrator"), which then hits
+; Access Denied writing there since PrivilegesRequired=lowest never actually requests admin.
+DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -41,8 +44,8 @@ Source: "..\publish\ApertureOS.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\publish\ApertureOS.pdb"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{userprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
