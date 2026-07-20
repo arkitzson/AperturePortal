@@ -46,9 +46,10 @@
                        Foreground="{StaticResource TextPrimaryBrush}"
                        HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="480"
                        TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
-            <TextBlock Text="Paused" FontSize="14"
+            <TextBlock x:Name="StatusText" Text="Paused" FontSize="14"
                        Foreground="{StaticResource TextSecondaryBrush}"
-                       HorizontalAlignment="Center" Margin="0,0,0,32"/>
+                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                       MaxWidth="260" Margin="0,0,0,32"/>
 
             <Button x:Name="ResumeButton" Content="Resume Game" Width="280" Height="48" Margin="0,0,0,12"
                     Style="{StaticResource AccentButtonStyle}" FontSize="15"

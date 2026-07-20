@@ -547,7 +547,8 @@ public partial class MainWindow : Window
                 _overlayWindow.SetGame(_runningGame);
             }
 
-            SuspendCurrentGame();
+            bool suspended = SuspendCurrentGame();
+            _overlayWindow.SetSuspendStatus(suspended);
             _overlayWindow.Show();
             _overlayWindow.Activate();
         }
@@ -561,15 +562,21 @@ public partial class MainWindow : Window
     /// process is the only reliable way to stop a game from reacting to controller input while
     /// paused, since XInput has no exclusive-access concept - see ProcessSuspender.
     /// </summary>
-    private void SuspendCurrentGame()
+    /// <returns>
+    /// False if nothing could actually be frozen (e.g. the game runs elevated, or under DRM/
+    /// anti-tamper protection, while this app doesn't), so the caller can tell the user the
+    /// pause didn't really take instead of showing a "Paused" screen over a game that's still
+    /// running underneath it.
+    /// </returns>
+    private bool SuspendCurrentGame()
     {
         IntPtr foregroundWindow = GetForegroundWindow();
         if (foregroundWindow == IntPtr.Zero)
-            return;
+            return false;
 
         GetWindowThreadProcessId(foregroundWindow, out uint pid);
         if (pid == 0 || pid == (uint)Environment.ProcessId)
-            return;
+            return false;
 
         try
         {
@@ -588,10 +595,12 @@ public partial class MainWindow : Window
 
             _gameSuspender.Suspend(process);
             _suspendedWindowHandle = foregroundWindow;
+            return _gameSuspender.LastSuspendSucceeded;
         }
         catch (ArgumentException)
         {
             // Process exited between the foreground lookup and GetProcessById; nothing to suspend.
+            return false;
         }
     }
 

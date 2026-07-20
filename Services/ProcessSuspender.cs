@@ -35,8 +35,18 @@ public sealed class ProcessSuspender
     public Process? SuspendedProcess { get; private set; }
 
     /// <summary>
+    /// True if at least one thread was actually frozen by the last <see cref="Suspend"/> call.
+    /// A game running elevated (or protected by anti-tamper/DRM) while this app isn't rejects
+    /// every OpenThread call, so a caller that only checks <see cref="SuspendedProcess"/> would
+    /// otherwise have no way to tell a real pause from a complete no-op.
+    /// </summary>
+    public bool LastSuspendSucceeded { get; private set; }
+
+    /// <summary>
     /// Suspends every thread in the given process. Threads we can't open - e.g. the process is
-    /// running elevated while this app isn't - are silently skipped; this is best-effort.
+    /// running elevated while this app isn't, or is protected by DRM/anti-tamper - are silently
+    /// skipped; this is best-effort. Check <see cref="LastSuspendSucceeded"/> to see whether that
+    /// happened for every thread.
     /// </summary>
     public void Suspend(Process process)
     {
@@ -53,6 +63,7 @@ public sealed class ProcessSuspender
         }
 
         SuspendedProcess = process;
+        LastSuspendSucceeded = _suspendedThreadHandles.Count > 0;
     }
 
     /// <summary>Resumes all threads suspended by the last <see cref="Suspend"/> call, if any.</summary>

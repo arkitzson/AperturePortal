@@ -72,6 +72,21 @@ public partial class OverlayWindow : Window
         BackdropBlur.Radius = hasHeader ? HeaderBackdropBlurRadius : CoverBackdropBlurRadius;
     }
 
+    /// <summary>
+    /// Reflects whether the game actually got frozen. A non-elevated Aperture Portal can't open
+    /// thread handles on an elevated (or DRM/anti-tamper-protected) game process, so without this
+    /// the menu would just say "Paused" over a game that's still fully running underneath it.
+    /// </summary>
+    public void SetSuspendStatus(bool suspended)
+    {
+        StatusText.Text = suspended
+            ? "Paused"
+            : "Couldn't pause: this game may be running with higher privileges than Aperture Portal";
+        StatusText.Foreground = suspended
+            ? (System.Windows.Media.Brush)FindResource("TextSecondaryBrush")
+            : (System.Windows.Media.Brush)FindResource("CloseHoverBrush");
+    }
+
     private void OverlayWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (IsVisible)
