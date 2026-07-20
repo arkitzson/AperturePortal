@@ -23,12 +23,24 @@ On top of that it's a normal game launcher too: it pulls your library together f
 
 ## Hotkeys
 
+**Keyboard**
+
 | Key | Where | Does |
 |---|---|---|
-| Ctrl+P | While a game is running | Opens the in-game overlay (pause/resume/exit/sleep). Controller equivalent: Back+Start. |
+| Ctrl+P | While a game is running | Opens the in-game overlay (pause/resume/exit/sleep). |
 | Arrow keys | Console Mode | Move the selection around the grid. |
 | Enter | Console Mode | Launch the selected game. |
 | Escape | Console Mode | Go back / exit Console Mode. |
+
+**Controller**
+
+| Button | Where | Does |
+|---|---|---|
+| Back + Start | While a game is running | Opens the in-game overlay. Same as Ctrl+P. |
+| D-pad / left stick | Main window & Console Mode | Move the selection. |
+| A | Main window & Console Mode | Launch / activate the selected game. |
+| B | Console Mode | Go back. |
+| LB / RB | Console Mode | Switch between filter tabs. |
 
 ## Install
 
