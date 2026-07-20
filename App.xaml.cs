@@ -2,6 +2,7 @@
 using System.Data;
 using System.Windows;
 using System.Windows.Threading;
+using ApertureOS.Services;
 
 namespace ApertureOS;
 
@@ -24,6 +25,9 @@ public partial class App : Application
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        // Swallowed exceptions were previously untraceable - there was no way to tell "nothing
+        // happened because that's expected" from "something threw and got silently discarded".
+        DebugLog.Write($"UNHANDLED EXCEPTION: {e.Exception}");
         e.Handled = true;
     }
 }

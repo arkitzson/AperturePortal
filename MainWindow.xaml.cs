@@ -52,6 +52,9 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
     private const int SwMinimize = 6;
     private const int SwRestore = 9;
 
@@ -590,8 +593,20 @@ public partial class MainWindow : Window
             // loop is still alive to react to it. Do this *before* suspending, or its threads
             // freeze before it ever gets the chance and the display stays stuck on the game's
             // last frame with the overlay invisible underneath it.
+            //
+            // A fixed sleep here used to be enough to mask this, back when Suspend() silently
+            // failed on most games (elevated/DRM-protected ones - see ProcessSuspender) and their
+            // message loops stayed alive regardless. Now that Suspend() actually works, a heavy
+            // engine that hasn't finished processing WM_SIZE within a fixed window gets its
+            // threads frozen mid-transition, stuck showing its last frame with nothing able to
+            // render on top - so poll for the minimize to really take effect instead of guessing
+            // at a delay, and fall through best-effort if it never does.
             ShowWindow(foregroundWindow, SwMinimize);
-            Thread.Sleep(50);
+            var minimizeDeadline = DateTime.UtcNow.AddMilliseconds(1500);
+            while (!IsIconic(foregroundWindow) && DateTime.UtcNow < minimizeDeadline)
+            {
+                Thread.Sleep(20);
+            }
 
             _gameSuspender.Suspend(process);
             _suspendedWindowHandle = foregroundWindow;

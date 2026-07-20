@@ -72,6 +72,8 @@ public partial class OverlayWindow : Window
         BackdropBlur.Radius = hasHeader ? HeaderBackdropBlurRadius : CoverBackdropBlurRadius;
     }
 
+    private bool _gameSuspended;
+
     /// <summary>
     /// Reflects whether the game actually got frozen. A non-elevated Aperture Portal can't open
     /// thread handles on an elevated (or DRM/anti-tamper-protected) game process, so without this
@@ -79,6 +81,7 @@ public partial class OverlayWindow : Window
     /// </summary>
     public void SetSuspendStatus(bool suspended)
     {
+        _gameSuspended = suspended;
         StatusText.Text = suspended
             ? "Paused"
             : "Couldn't pause: this game may be running with higher privileges than Aperture Portal";
@@ -99,7 +102,16 @@ public partial class OverlayWindow : Window
             // keeps reaching the game underneath. This only works when the game is running
             // at the same (or lower) integrity level as this app - an elevated game still
             // wins, since a non-elevated process can never steal focus from one.
-            ForceForeground(new WindowInteropHelper(this).Handle);
+            //
+            // Only worth doing at all when the game is still actually alive: once
+            // ProcessSuspender has frozen every one of its threads, it can no longer steal
+            // input back regardless, and AttachThreadInput-ing against an already-suspended
+            // thread is undefined enough that it left this window permanently stuck
+            // WS_VISIBLE=false despite WPF itself insisting IsVisible was true.
+            if (!_gameSuspended)
+            {
+                ForceForeground(new WindowInteropHelper(this).Handle);
+            }
         }
         else
         {
