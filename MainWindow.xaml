@@ -34,6 +34,9 @@
                                FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="UpdateAvailableButton" Style="{StaticResource AccentButtonStyle}"
+                            Height="24" Padding="10,0" FontSize="11" VerticalAlignment="Center"
+                            Margin="0,0,10,0" Visibility="Collapsed" Click="UpdateAvailableButton_Click"/>
                     <Button x:Name="SettingsButton" Content="&#xE713;" Style="{StaticResource TitleBarButtonStyle}"
                             Click="SettingsButton_Click"/>
                     <Button x:Name="MinimizeButton" Content="&#xE921;" Style="{StaticResource TitleBarButtonStyle}"

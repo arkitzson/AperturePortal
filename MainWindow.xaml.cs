@@ -1098,11 +1098,42 @@ public partial class MainWindow : Window
         }
     }
 
+    private string? _updateReleaseUrl;
+
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         if (_settingsService.Load().LaunchInConsoleMode)
         {
             EnterConsoleMode();
+        }
+
+        _ = CheckForUpdateAsync();
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        var update = await UpdateCheckService.CheckForUpdateAsync();
+        if (update is null)
+            return;
+
+        _updateReleaseUrl = update.ReleaseUrl;
+        UpdateAvailableButton.Content = $"Update available: v{update.Version}";
+        UpdateAvailableButton.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateAvailableButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_updateReleaseUrl is null)
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(_updateReleaseUrl) { UseShellExecute = true });
+        }
+        catch
+        {
+            // Best-effort - if the default browser can't be launched for some reason, there's
+            // nothing more useful to do than leave the button there for the user to try again.
         }
     }
 
