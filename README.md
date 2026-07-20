@@ -9,17 +9,26 @@ On top of that it's a normal game launcher too: it pulls your library together f
 ## Features
 
 - **Sleep without losing your place:** hit Sleep from the in-game overlay and Aperture Portal suspends the game's process (not just alt-tabs away from it) and puts the whole PC to sleep. Wake the PC back up and resume, and the game picks up exactly where it was, not from a checkpoint or an autosave.
-- **In-game overlay:** pause, resume, exit, or sleep a running game with a controller (Back+Start), without ever alt-tabbing out.
+- **In-game overlay:** pause, resume, exit, or sleep a running game with a controller (Back+Start) or the keyboard (Ctrl+P), without ever alt-tabbing out.
 - **Steam sync:** pulls in games already installed on your PC, or your whole owned library (including Family Sharing) via browser sign-in or a Steam Web API key. Tracks real install/download progress by reading Steam's own manifests.
 - **Epic Games & GOG sync:** local, automatic detection of installed games, no login required.
 - **Manual add:** for anything else (Battle.net, Xbox/Game Pass, or a plain .exe), point it at the executable and tag which platform it's from.
-- **Console Mode:** a fullscreen, gamepad-navigable view of your library for when you're on the couch. Built for Xbox-compatible (XInput) controllers.
+- **Console Mode:** a fullscreen, gamepad-navigable view of your library for when you're on the couch. Built for Xbox-compatible (XInput) controllers, with arrow keys, Enter, and Escape as a keyboard fallback.
 - **Cover art:** auto-fetched from [SteamGridDB](https://www.steamgriddb.com/) (needs a free API key), or picked manually per game.
 - **Startup options:** launch with Windows, and/or skip straight to Console Mode instead of the normal window.
 
 |  |  |
 |---|---|
 | ![Console Mode](docs/screenshots/console-mode.jpg) | ![In-game overlay](docs/screenshots/overlay.jpg) |
+
+## Hotkeys
+
+| Key | Where | Does |
+|---|---|---|
+| Ctrl+P | While a game is running | Opens the in-game overlay (pause/resume/exit/sleep). Controller equivalent: Back+Start. |
+| Arrow keys | Console Mode | Move the selection around the grid. |
+| Enter | Console Mode | Launch the selected game. |
+| Escape | Console Mode | Go back / exit Console Mode. |
 
 ## Install
 
