@@ -4,7 +4,7 @@
 ; Compile with: ISCC.exe installer\ApertureOS.iss   (run from the repo root)
 
 #define MyAppName "Aperture Portal"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Aperture Portal"
 #define MyAppExeName "ApertureOS.exe"
 
