@@ -66,8 +66,10 @@ public partial class MainWindow : Window
     private static readonly TimeSpan BootstrapperExitThreshold = TimeSpan.FromSeconds(8);
 
     // How long to keep watching for the real game to take over the foreground after a
-    // suspiciously-fast exit before giving up and treating the session as genuinely over.
-    private static readonly TimeSpan AdoptionGracePeriod = TimeSpan.FromSeconds(90);
+    // suspiciously-fast exit before giving up and treating the session as genuinely over. Long
+    // enough to cover slow first-launch shader compilation/anti-cheat setup on a big game without
+    // leaving a genuinely-failed launch stuck too long either.
+    private static readonly TimeSpan AdoptionGracePeriod = TimeSpan.FromSeconds(150);
 
     private readonly GameLibraryService _libraryService = new();
     private readonly SettingsService _settingsService = new();
@@ -75,6 +77,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<Game> _games = new();
     private ICollectionView _gamesView = null!;
     private LibraryFilter _currentFilter = LibraryFilter.All;
+    private Guid? _currentCategoryFilter;
+    private List<GameCategory> _categories = [];
     private string _searchText = string.Empty;
 
     // DispatcherPriority.Input (rather than the default Background) keeps this ticking promptly
@@ -115,6 +119,7 @@ public partial class MainWindow : Window
     public ICollectionView GamesView => _gamesView;
 
     public LibraryFilter CurrentFilter => _currentFilter;
+    public Guid? CurrentCategoryFilter => _currentCategoryFilter;
 
     public event EventHandler? GameSessionEnded;
 
@@ -123,9 +128,15 @@ public partial class MainWindow : Window
         // Restore whichever tab was selected last session, before anything below reads
         // _currentFilter - falls back to the field initializer's All if this is the first
         // launch ever or the saved value is somehow no longer a valid LibraryFilter name.
-        if (Enum.TryParse<LibraryFilter>(_settingsService.Load().LastLibraryFilter, out var savedFilter))
+        var startupSettings = _settingsService.Load();
+        if (Enum.TryParse<LibraryFilter>(startupSettings.LastLibraryFilter, out var savedFilter))
         {
             _currentFilter = savedFilter;
+        }
+
+        if (Guid.TryParse(startupSettings.LastCategoryFilterId, out var savedCategoryId))
+        {
+            _currentCategoryFilter = savedCategoryId;
         }
 
         // Built before InitializeComponent(): none of the filter tabs set IsChecked="True" in XAML
@@ -152,11 +163,33 @@ public partial class MainWindow : Window
 
         GamesItemsControl.ItemsSource = _gamesView;
 
+        // Covers every path that can change the library size (initial load below, Add Games,
+        // Steam/Epic/GOG sync, category deletion cascades, etc.) from one place instead of each
+        // caller remembering to call UpdateEmptyState itself.
+        _games.CollectionChanged += (_, _) => UpdateEmptyState();
+
         foreach (var game in _libraryService.LoadGames())
         {
             _games.Add(game);
         }
         RefreshInstallStates();
+        RefreshCategoryChips();
+
+        // Each _games.Add() above ran the filter immediately against that item, at a point where
+        // _categories was still its empty field-initializer value (RefreshCategoryChips - the only
+        // thing that populates it - hadn't run yet). With a category filter restored from settings,
+        // that meant every single game's category check saw "no matching category found" and got
+        // excluded, and nothing about populating _categories afterward is itself observable to the
+        // already-filtered view, so it silently stayed wrong: the whole library would appear empty
+        // on any launch where a category filter was persisted from a previous session. Now that
+        // _categories is actually populated, force a real re-evaluation of every item.
+        _gamesView.Refresh();
+
+        // The CollectionChanged subscription above only fires on an actual Add/Remove - a library
+        // that's empty on this very first load never raises one (the foreach above simply never
+        // ran), so this still needs an explicit first check instead of leaving the panel at its
+        // default Collapsed.
+        UpdateEmptyState();
 
         _gamepadTimer.Tick += GamepadTimer_Tick;
         _gamepadTimer.Start();
@@ -181,6 +214,20 @@ public partial class MainWindow : Window
         if (!matchesCategory)
             return false;
 
+        if (_currentCategoryFilter is { } categoryId)
+        {
+            var category = _categories.FirstOrDefault(c => c.Id == categoryId);
+            bool inCategory = category is not null && (category.Kind switch
+            {
+                CategoryKind.AutoConsole => game.Console == category.SourceKey,
+                CategoryKind.AutoPlatform => CategoryService.GetPlatformDisplayName(game.Platform) == category.SourceKey,
+                _ => game.CategoryIds.Contains(categoryId)
+            });
+
+            if (!inCategory)
+                return false;
+        }
+
         return string.IsNullOrWhiteSpace(_searchText) ||
                game.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
     }
@@ -191,6 +238,85 @@ public partial class MainWindow : Window
         {
             SetLibraryFilter(filter);
         }
+    }
+
+    private void CategoryChip_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: CategoryChipViewModel chip })
+        {
+            SetCategoryFilter(chip.CategoryId);
+        }
+    }
+
+    /// <summary>Mirrors SetLibraryFilter - the two filter dimensions are independent but follow the same restore/persist/refresh pattern.</summary>
+    /// <summary>Mirrors SetLibraryFilter's public visibility - shared by the desktop chip row and Console Mode's own reflection of it.</summary>
+    public void SetCategoryFilter(Guid? categoryId)
+    {
+        _currentCategoryFilter = categoryId;
+        _gamesView.Refresh();
+        _focusedTileIndex = null;
+
+        var settings = _settingsService.Load();
+        settings.LastCategoryFilterId = categoryId?.ToString() ?? string.Empty;
+        _settingsService.Save(settings);
+    }
+
+    /// <summary>
+    /// Builds the category chip list from categories.json, joined against the current game list so
+    /// only categories with at least one matching game show up (unlike ManageCategoriesWindow, which
+    /// lists every category including empty ones). Shared with ConsoleModeWindow, which shows the
+    /// same chip row read-only-ish (still clickable, just with no gamepad binding of its own yet) so
+    /// categories created on the desktop are at least visible from Console Mode.
+    /// </summary>
+    public List<CategoryChipViewModel> BuildCategoryChips()
+    {
+        var chips = new List<CategoryChipViewModel> { new() { CategoryId = null, Label = "All Categories" } };
+        chips.AddRange(_categories
+            .OrderBy(c => c.SortOrder)
+            .Where(c => _games.Any(g => c.Kind switch
+            {
+                CategoryKind.AutoConsole => g.Console == c.SourceKey,
+                CategoryKind.AutoPlatform => CategoryService.GetPlatformDisplayName(g.Platform) == c.SourceKey,
+                _ => g.CategoryIds.Contains(c.Id)
+            }))
+            .Select(c => new CategoryChipViewModel { CategoryId = c.Id, Label = c.Name }));
+        return chips;
+    }
+
+    /// <summary>Rebuilds the category chip row. Called whenever games or categories could have changed underneath this window (startup, and after Add Game/Settings/Categories close).</summary>
+    private void RefreshCategoryChips()
+    {
+        _categories = new CategoryService().LoadCategories();
+        var chips = BuildCategoryChips();
+
+        CategoryChipsItemsControl.ItemsSource = chips;
+
+        // Decided purely from data, deliberately not from whether a visual container exists yet -
+        // WPF doesn't generate ItemsControl containers synchronously when ItemsSource is set, so
+        // checking the visual tree here (even at Loaded dispatcher priority) can't reliably tell
+        // "not rendered yet" apart from "this category is genuinely gone", and conflating the two
+        // was wiping LastCategoryFilterId back to empty on every single startup even though the
+        // category still existed - the container just hadn't been generated the instant this ran.
+        if (_currentCategoryFilter is not null && chips.All(c => c.CategoryId != _currentCategoryFilter))
+        {
+            SetCategoryFilter(null);
+        }
+
+        // Drives the RadioButton's IsChecked via CategoryChipViewModel.IsSelected's binding rather
+        // than an ItemContainerGenerator lookup - the container for this item may not exist yet
+        // (this runs from the constructor, before the window has ever been rendered), but the
+        // binding applies itself the moment WPF does create one, with no timing dependency.
+        (chips.FirstOrDefault(c => c.CategoryId == _currentCategoryFilter) ?? chips[0]).IsSelected = true;
+    }
+
+    /// <summary>
+    /// Toggles the "no games yet" empty state against the raw library size, not the current
+    /// filtered view - an empty "Installed" tab with games elsewhere in the library should still
+    /// show the normal (empty) grid, not this. Only a genuinely empty library gets the sad face.
+    /// </summary>
+    private void UpdateEmptyState()
+    {
+        EmptyStatePanel.Visibility = _games.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Shared by the desktop filter tabs and Console Mode's LB/RB cycling, so both stay in sync on one filter state.</summary>
@@ -350,6 +476,33 @@ public partial class MainWindow : Window
             }
         }
 
+        // Safety net for the tracked process's own Exited event never firing. The most common cause
+        // (see the comment in TryAdoptForegroundProcess) is EnableRaisingEvents throwing "Access is
+        // denied" for anti-cheat-protected/elevated games - when that happens the process still
+        // gets adopted/tracked, but nothing ever signals its exit, which is exactly what left
+        // Console Mode never reappearing after a real exit (the session had already ended early via
+        // the adoption-deadline timeout above, so by the time the game actually closed there was
+        // nothing left listening). HasExited only needs PROCESS_QUERY_LIMITED_INFORMATION, a much
+        // lower bar than the SYNCHRONIZE access the Exited event's wait handle needs, so this
+        // succeeds in exactly the cases the event-based path doesn't.
+        if (_runningGameProcess is { } trackedProcess)
+        {
+            bool hasExited;
+            try
+            {
+                hasExited = trackedProcess.HasExited;
+            }
+            catch
+            {
+                hasExited = false;
+            }
+
+            if (hasExited)
+            {
+                GameProcess_Exited(trackedProcess, EventArgs.Empty);
+            }
+        }
+
         var pad = GamepadService.Poll();
 
         // Works no matter which window has focus, so a paused game can still be
@@ -394,7 +547,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>True only when a window belonging to this process is the real OS foreground window.</summary>
-    private static bool IsThisAppForeground()
+    internal static bool IsThisAppForeground()
     {
         var foregroundWindow = GetForegroundWindow();
         if (foregroundWindow == IntPtr.Zero)
@@ -730,6 +883,14 @@ public partial class MainWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
+            // Guards a redundant/stale invocation - the HasExited poll backstop below and the real
+            // Exited event can both end up firing for the same process exit, and either could
+            // arrive after the session was already ended some other way. Without this, re-running
+            // the logic below against a null/already-replaced _runningGameProcess could act on
+            // stale state (e.g. spuriously starting a new adoption wait after the session is over).
+            if (_runningGameProcess is null || (sender is Process senderProcess && !ReferenceEquals(senderProcess, _runningGameProcess)))
+                return;
+
             bool wasShortLived = DateTime.UtcNow - _runningProcessStartedAt < BootstrapperExitThreshold;
 
             if (wasShortLived && TryAdoptForegroundProcess())
@@ -864,14 +1025,19 @@ public partial class MainWindow : Window
 
     private void AddGameButton_Click(object sender, RoutedEventArgs e)
     {
-        var addGameWindow = new AddGameWindow(_libraryService, _settingsService) { Owner = this };
+        var addGamesWindow = new AddGamesWindow(_libraryService, _settingsService) { Owner = this };
+        addGamesWindow.ShowDialog();
 
-        if (addGameWindow.ShowDialog() == true && addGameWindow.ResultGame is { } newGame)
+        // Manual/Steam/Epic/GOG/Emulator/Installed-Folder can all write to games.json from inside
+        // this one window now - same unconditional reload-after-close pattern as
+        // SettingsButton_Click/CategoriesButton_Click, since there's no single "result" to apply.
+        _games.Clear();
+        foreach (var game in _libraryService.LoadGames())
         {
-            _games.Add(newGame);
-            _libraryService.SaveGames(_games);
-            UpdateInstallState(newGame);
+            _games.Add(game);
         }
+        RefreshInstallStates();
+        RefreshCategoryChips();
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -887,6 +1053,23 @@ public partial class MainWindow : Window
             _games.Add(game);
         }
         RefreshInstallStates();
+        RefreshCategoryChips();
+    }
+
+    private void CategoriesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var categoriesWindow = new ManageCategoriesWindow(_libraryService) { Owner = this };
+        categoriesWindow.ShowDialog();
+
+        // Category assignment/deletion can rewrite games.json (CategoryIds), same reload-after-close
+        // pattern as SettingsButton_Click.
+        _games.Clear();
+        foreach (var game in _libraryService.LoadGames())
+        {
+            _games.Add(game);
+        }
+        RefreshInstallStates();
+        RefreshCategoryChips();
     }
 
     private void MoreButton_Click(object sender, RoutedEventArgs e)
@@ -903,8 +1086,63 @@ public partial class MainWindow : Window
             // wouldn't reach the MenuItem click handlers below without this.
             menu.DataContext = button.DataContext;
             menu.PlacementTarget = button;
+
+            if (button.DataContext is Game game &&
+                menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Tag as string == "CategoriesSubmenu") is { } categoriesMenuItem)
+            {
+                PopulateCategoriesSubmenu(categoriesMenuItem, game);
+            }
+
             menu.IsOpen = true;
         }
+    }
+
+    /// <summary>Rebuilt every time the menu opens rather than kept in sync live - custom categories rarely change mid-session, and this keeps the submenu trivially always-correct instead of needing its own change-tracking.</summary>
+    private void PopulateCategoriesSubmenu(MenuItem categoriesMenuItem, Game game)
+    {
+        categoriesMenuItem.Items.Clear();
+
+        var customCategories = new CategoryService().LoadCategories()
+            .Where(c => c.Kind == CategoryKind.Custom)
+            .OrderBy(c => c.SortOrder)
+            .ToList();
+
+        if (customCategories.Count == 0)
+        {
+            categoriesMenuItem.Items.Add(new MenuItem { Header = "No custom categories yet - see the Categories button", IsEnabled = false });
+            return;
+        }
+
+        foreach (var category in customCategories)
+        {
+            var item = new MenuItem
+            {
+                Header = category.Name,
+                IsCheckable = true,
+                IsChecked = game.CategoryIds.Contains(category.Id)
+            };
+            // WPF toggles IsChecked before Click fires for a checkable MenuItem, so this already
+            // reflects the new state by the time it runs.
+            item.Click += (_, _) => ToggleGameCategory(game, category.Id, item.IsChecked);
+            categoriesMenuItem.Items.Add(item);
+        }
+    }
+
+    private void ToggleGameCategory(Game game, Guid categoryId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!game.CategoryIds.Contains(categoryId))
+            {
+                game.CategoryIds.Add(categoryId);
+            }
+        }
+        else
+        {
+            game.CategoryIds.Remove(categoryId);
+        }
+
+        _libraryService.SaveGames(_games);
     }
 
     private void EditGame_Click(object sender, RoutedEventArgs e)
@@ -1036,7 +1274,23 @@ public partial class MainWindow : Window
         // (Steam itself resolves the actual exe), so File.Exists would always fail for them.
         var isSteamUri = game.ExePath.StartsWith("steam://", StringComparison.OrdinalIgnoreCase);
 
-        if (!isSteamUri && !File.Exists(game.ExePath))
+        if (game.IsEmulated)
+        {
+            if (!File.Exists(game.EmulatorPath))
+            {
+                MessageBox.Show(this, $"Could not find the emulator for '{game.Name}'.\n{game.EmulatorPath}",
+                    "Launch Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (!File.Exists(game.ExePath))
+            {
+                MessageBox.Show(this, $"Could not find the game file for '{game.Name}'.\n{game.ExePath}",
+                    "Launch Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+        }
+        else if (!isSteamUri && !File.Exists(game.ExePath))
         {
             MessageBox.Show(this, $"Could not find the executable for '{game.Name}'.\n{game.ExePath}",
                 "Launch Failed", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -1061,10 +1315,17 @@ public partial class MainWindow : Window
             _launchingWindow.Show();
             _launchingWindowShownAt = DateTime.UtcNow;
 
+            // An emulated game's process IS the emulator for the whole session - there's no
+            // bootstrapper handoff to a separate "real game" process the way native games
+            // sometimes have, so nothing else in this method needs to change: the emulator's own
+            // Exited event, ProcessSuspender freeze/resume via the overlay, etc. all work against
+            // it exactly like they would against a plain native exe.
             var process = Process.Start(new ProcessStartInfo
             {
-                FileName = game.ExePath,
-                WorkingDirectory = isSteamUri ? null : Path.GetDirectoryName(game.ExePath),
+                FileName = game.IsEmulated ? game.EmulatorPath : game.ExePath,
+                Arguments = game.IsEmulated ? $"\"{game.ExePath}\"" : null,
+                WorkingDirectory = game.IsEmulated ? Path.GetDirectoryName(game.EmulatorPath)
+                                  : isSteamUri ? null : Path.GetDirectoryName(game.ExePath),
                 UseShellExecute = true
             });
 
@@ -1169,4 +1430,33 @@ public partial class MainWindow : Window
         var args = new MouseEventArgs(mouseDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseMoveEvent };
         InputManager.Current.ProcessInput(args);
     }
+}
+
+/// <summary>One chip in the category filter row - CategoryId null means the synthetic "All Categories" chip.</summary>
+public class CategoryChipViewModel : INotifyPropertyChanged
+{
+    private bool _isSelected;
+
+    public Guid? CategoryId { get; init; }
+    public string Label { get; init; } = string.Empty;
+
+    // Bound (not driven by an ItemContainerGenerator lookup): a RadioButton's container for this
+    // item may not exist yet when RefreshCategoryChips runs (e.g. during the constructor, before
+    // the window has ever been rendered), so setting IsChecked imperatively at that point has
+    // nothing to act on. Binding IsChecked to this instead means WPF applies it the moment a
+    // container does get created, regardless of when that happens relative to when it's set here.
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value)
+                return;
+
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }

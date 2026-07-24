@@ -20,6 +20,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -28,7 +29,7 @@
                        Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
             <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" HorizontalAlignment="Right"
                        FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"
-                       Text="A / Enter: Launch     B / Esc: Back     LB/RB: Filter"/>
+                       Text="A / Enter: Launch     B / Esc: Back     LB/RB: Filter     X/Y: Category"/>
         </DockPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,20">
@@ -46,7 +47,27 @@
                          Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="FilterTab_Checked"/>
         </StackPanel>
 
-        <ListBox x:Name="GameListBox" Grid.Row="2" Background="Transparent" BorderThickness="0"
+        <!-- Reflection of the desktop's category chip row: still clickable if a mouse happens to be
+             in play, and X/Y step through it as a ring (see CycleCategory) since LB/RB were already
+             taken by the LibraryFilter tabs above. Category management itself stays desktop-only. -->
+        <ItemsControl x:Name="CategoryChipsItemsControl" Grid.Row="2" Margin="0,0,0,20">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <RadioButton Content="{Binding Label}" Tag="{Binding}" GroupName="ConsoleCategoryFilter"
+                                 Style="{StaticResource FilterTabStyle}" Margin="0,0,8,8"
+                                 IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                 Checked="CategoryChip_Checked"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Grid Grid.Row="3">
+        <ListBox x:Name="GameListBox" Background="Transparent" BorderThickness="0"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
                  KeyboardNavigation.DirectionalNavigation="None"
@@ -190,5 +211,17 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+
+        <!-- Shown only when the library has no games at all - mirrors MainWindow's empty state, but
+             no call-to-action button: adding games isn't reachable from this gamepad-only window. -->
+        <StackPanel x:Name="EmptyStatePanel" Visibility="Collapsed"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Text="&#x1F641;" FontSize="72" HorizontalAlignment="Center"/>
+            <TextBlock Text="No games yet" FontSize="26" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" Margin="0,20,0,6"/>
+            <TextBlock Text="Add some games from the desktop view, then come back in here." FontSize="15"
+                       Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+        </StackPanel>
+        </Grid>
     </Grid>
 </Window>

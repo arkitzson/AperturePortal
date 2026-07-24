@@ -53,6 +53,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
@@ -62,11 +63,20 @@
                         <TextBlock Text="{Binding Items.Count, ElementName=GamesItemsControl, StringFormat='{}{0} games in your library'}"
                                    FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
                     </StackPanel>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button x:Name="ConsoleModeButton" Content="Console Mode" Width="140" Height="34"
-                                Margin="0,0,10,0" Click="ConsoleModeButton_Click"/>
-                        <Button x:Name="AddGameButton" Content="+ Add Game" Width="130" Height="34"
-                                Style="{StaticResource AccentButtonStyle}"
+                    <!-- VerticalAlignment="Center" on each button matters here: a horizontal
+                         StackPanel stretches children to fill its own cross-axis height by default,
+                         and that height is set by the tallest DockPanel sibling - the "My Games"
+                         title + subtitle stack to the left, at ~50px, well past these buttons'
+                         actual 34px. Without it, the buttons silently rendered ~50px tall (MinHeight
+                         is a floor, not a ceiling - Stretch still wins once more space is available)
+                         instead of the 34px every other button/tab in this window uses. -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="CategoriesButton" Content="Categories" MinWidth="110" MinHeight="34"
+                                VerticalAlignment="Center" Margin="0,0,10,0" Click="CategoriesButton_Click"/>
+                        <Button x:Name="ConsoleModeButton" Content="Console Mode" MinWidth="140" MinHeight="34"
+                                VerticalAlignment="Center" Margin="0,0,10,0" Click="ConsoleModeButton_Click"/>
+                        <Button x:Name="AddGameButton" Content="+ Add Games" MinWidth="130" MinHeight="34"
+                                VerticalAlignment="Center" Style="{StaticResource AccentButtonStyle}"
                                 Click="AddGameButton_Click"/>
                     </StackPanel>
                 </DockPanel>
@@ -94,7 +104,27 @@
                     </StackPanel>
                 </DockPanel>
 
-                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <!-- Categories: a second, independent filter dimension from the tabs above (AND'd
+                     together, not mutually exclusive - separate RadioButton GroupName) - built
+                     dynamically since the category list is variable, unlike the four fixed tabs. -->
+                <ItemsControl x:Name="CategoryChipsItemsControl" Grid.Row="2" Margin="0,0,0,16">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton Content="{Binding Label}" Tag="{Binding}" GroupName="CategoryFilter"
+                                         Style="{StaticResource FilterTabStyle}" Margin="0,0,8,8"
+                                         IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                         Checked="CategoryChip_Checked"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid Grid.Row="3">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl x:Name="GamesItemsControl" Padding="16,16,16,24" HorizontalAlignment="Center">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -232,6 +262,12 @@
                                                                         <ContextMenu Placement="Bottom">
                                                                             <MenuItem Header="Edit Game" Click="EditGame_Click"/>
                                                                             <MenuItem Header="Delete Game" Click="DeleteGame_Click"/>
+                                                                            <Separator/>
+                                                                            <!-- Populated in code (MoreButton_Click): contents depend on
+                                                                                 both the current custom category list and this game's
+                                                                                 CategoryIds. Tag marks it so code-behind can find it
+                                                                                 without relying on Header text. -->
+                                                                            <MenuItem Header="Categories" Tag="CategoriesSubmenu"/>
                                                                         </ContextMenu>
                                                                     </Button.ContextMenu>
                                                                 </Button>
@@ -308,6 +344,21 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+
+                <!-- Shown only when the library has no games at all (not just "none match the
+                     current filter") - AddGameButton_Click is reused directly as the call to action
+                     so there's exactly one place that knows how to open the Add Games hub. -->
+                <StackPanel x:Name="EmptyStatePanel" Visibility="Collapsed"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="&#x1F641;" FontSize="56" HorizontalAlignment="Center"/>
+                    <TextBlock Text="No games yet" FontSize="20" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" Margin="0,16,0,4"/>
+                    <TextBlock Text="Add a game to start building your library." FontSize="13"
+                               Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                    <Button Content="+ Add Games" Style="{StaticResource AccentButtonStyle}" MinWidth="150" MinHeight="34"
+                            HorizontalAlignment="Center" Click="AddGameButton_Click"/>
+                </StackPanel>
+                </Grid>
             </Grid>
         </Grid>
     </Border>

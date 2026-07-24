@@ -13,17 +13,21 @@ AppId={{B3B6E1B7-6C2A-4E3C-9E60-1B1F9A8F2C4D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-; Defaults to a per-user install under LocalAppData - no admin/UAC prompt needed, matching
-; how the app already manages its own "start with Windows" registry entry on a per-user
-; basis - but PrivilegesRequiredOverridesAllowed lets someone opt into a machine-wide
-; Program Files install instead, via the mode-selection page. Without that directive,
-; PrivilegesRequired=lowest silently never requests elevation, so if {autopf} pointed at
-; Program Files (which it does whenever Setup happens to already hold an elevated token)
-; the install would hit Access Denied instead of prompting for admin rights.
-DefaultDirName={autopf}\{#MyAppName}
+; Per-user install under LocalAppData, unconditionally - no admin/UAC prompt, ever, matching
+; how the app already manages its own "start with Windows" registry entry and all its other
+; state (settings.json, library, covers) on a per-user basis under %LocalAppData%\ApertureOS.
+; A prior attempt offered a Program Files/"install for all users" option via
+; PrivilegesRequiredOverridesAllowed + {autopf}, but that hit repeated Access Denied errors in
+; practice: {autopf} (and the {auto*} icon constants) resolve based on whichever install mode
+; is in effect for the run - including reverting to Program Files if Setup simply happens to
+; already hold an elevated token at launch (e.g. someone right-clicks "Run as administrator"
+; on the installer), independent of PrivilegesRequired/the mode dialog - and that doesn't
+; reliably line up with the token actually held when the file copy runs. Hardcoding the
+; per-user path sidesteps that whole class of bug: this is a single-user desktop app with no
+; shared system components, so there's no real need for a machine-wide install to begin with.
+DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=commandline dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\installer-output
@@ -47,8 +51,8 @@ Source: "..\publish\ApertureOS.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\publish\ApertureOS.pdb"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{userprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
