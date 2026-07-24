@@ -95,6 +95,17 @@ public partial class OverlayWindow : Window
         if (IsVisible)
         {
             ResumeButton.Focus();
+
+            // Prime to the actual current physical state rather than assuming nothing's held - see
+            // the equivalent comment on GameActionConfirmWindow's Loaded handler. The Back+Start
+            // combo that opens this overlay is read by MainWindow's own timer, a separate poll of
+            // the same raw XInput state, so there's no guarantee either button has been released by
+            // the time this window's first tick runs.
+            var pad = GamepadService.Poll();
+            _upRepeater.Sync(pad.Up);
+            _downRepeater.Sync(pad.Down);
+            _confirmEdge.Sync(pad.A);
+
             _inputTimer.Start();
 
             // Topmost only wins the z-order fight; it does not take real input focus away

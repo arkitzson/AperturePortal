@@ -73,6 +73,23 @@ public partial class GameActionConfirmWindow : Window
         Loaded += (_, _) =>
         {
             ConfirmButton.Focus();
+
+            // Prime the trackers to the *actual* current physical state rather than assuming
+            // nothing's held: this dialog is opened by an A press on a tile (see
+            // ConsoleModeWindow.LaunchSelected/MainWindow.ActivateFocusedElement), and that same
+            // press is very often still physically down for this window's first tick or two.
+            // Without this, that residual hold reads as a brand-new edge the moment polling starts
+            // and instantly activates Confirm on a press the user never intended as "confirm this" -
+            // or doesn't, depending on exactly how fast they release, which is what made the number
+            // of presses actually needed to launch a game feel inconsistent. Syncing first makes it
+            // deterministic: always a real release of the opening press, then a deliberate second
+            // press to confirm.
+            var pad = GamepadService.Poll();
+            _leftEdge.Sync(pad.Left);
+            _rightEdge.Sync(pad.Right);
+            _confirmEdge.Sync(pad.A);
+            _cancelEdge.Sync(pad.B);
+
             _inputTimer.Start();
         };
         Closed += (_, _) => _inputTimer.Stop();

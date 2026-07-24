@@ -20,6 +20,8 @@ public partial class ConsoleModeWindow : Window
     private readonly GamepadEdge _bEdge = new();
     private readonly GamepadEdge _lbEdge = new();
     private readonly GamepadEdge _rbEdge = new();
+    private readonly GamepadEdge _xEdge = new();
+    private readonly GamepadEdge _yEdge = new();
 
     // Same order the filter tabs appear in, so LB/RB can step through them as a simple ring.
     private static readonly LibraryFilter[] FilterOrder =
@@ -52,14 +54,28 @@ public partial class ConsoleModeWindow : Window
         _owner.GameSessionEnded += Owner_GameSessionEnded;
 
         SyncFilterTabToOwner();
+        SyncCategoryChipsToOwner();
         UpdateColumns();
         if (GameListBox.Items.Count > 0)
         {
             SelectIndex(0);
         }
 
+        // A one-time check rather than a live subscription: there's no path to add games from
+        // Console Mode itself, so the library's total size can't change while this window is open.
+        EmptyStatePanel.Visibility = _owner.Games.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
         ResetInputTrackers();
         _inputTimer.Start();
+    }
+
+    /// <summary>Mirrors the desktop's category chips (and which one is active) as of whenever Console Mode was entered - a fresh snapshot each time, not live-synced while both are open, since desktop-only surfaces like category management can't be reached without leaving Console Mode first anyway.</summary>
+    private void SyncCategoryChipsToOwner()
+    {
+        var chips = _owner.BuildCategoryChips();
+        var selected = chips.FirstOrDefault(c => c.CategoryId == _owner.CurrentCategoryFilter) ?? chips[0];
+        selected.IsSelected = true;
+        CategoryChipsItemsControl.ItemsSource = chips;
     }
 
     /// <summary>Reflects whichever filter was already active (e.g. picked from the desktop tabs before entering Console Mode) in this window's own tab row, without re-triggering a redundant filter change.</summary>
@@ -92,6 +108,19 @@ public partial class ConsoleModeWindow : Window
         }
     }
 
+    private void CategoryChip_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not RadioButton { Tag: CategoryChipViewModel chip })
+            return;
+
+        _owner.SetCategoryFilter(chip.CategoryId);
+        _selectedIndex = 0;
+        if (GameListBox.Items.Count > 0)
+        {
+            SelectIndex(0);
+        }
+    }
+
     private void CycleFilter(int direction)
     {
         int currentIndex = Array.IndexOf(FilterOrder, _owner.CurrentFilter);
@@ -106,6 +135,30 @@ public partial class ConsoleModeWindow : Window
 
         // Setting IsChecked fires FilterTab_Checked, which does the actual filtering/reselection.
         button.IsChecked = true;
+    }
+
+    /// <summary>Steps the category chip row as a ring, X/Y-bound - LB/RB were already taken by
+    /// CycleFilter above, and XInput's triggers aren't decoded anywhere in this app (GamepadService
+    /// only exposes digital buttons/D-pad/stick), so X/Y are the next free, always-present buttons
+    /// on a standard controller.</summary>
+    private void CycleCategory(int direction)
+    {
+        if (CategoryChipsItemsControl.ItemsSource is not List<CategoryChipViewModel> chips || chips.Count == 0)
+            return;
+
+        int currentIndex = chips.FindIndex(c => c.CategoryId == _owner.CurrentCategoryFilter);
+        if (currentIndex < 0)
+        {
+            currentIndex = 0;
+        }
+
+        int newIndex = (currentIndex + direction + chips.Count) % chips.Count;
+
+        // Setting IsSelected (rather than clicking) still fires CategoryChip_Checked: it's TwoWay-bound
+        // to the RadioButton's IsChecked, and WPF's GroupName exclusivity applies to bound updates the
+        // same as real clicks, unchecking the previously-selected chip (and flowing its own IsSelected
+        // back to false) as a side effect.
+        chips[newIndex].IsSelected = true;
     }
 
     private void Window_Closed(object sender, EventArgs e)
@@ -139,25 +192,32 @@ public partial class ConsoleModeWindow : Window
             Show();
             Activate();
 
-            // The gap between hiding for a game and reappearing here is an entire play session,
-            // not a split-second - so unlike the overlay's Exit Game case, there's no real risk of
-            // a still-held button meaning "fire immediately". Resetting means a press that arrived
-            // while hidden (and so got tracked as "held" without its gated action running - see
-            // InputTimer_Tick) doesn't require an extra release-then-press to register now.
+            // Resyncs to whatever's actually physically held right now rather than blindly assuming
+            // nothing is - a normal full play session ending naturally, nothing usually is, so this
+            // behaves the same as a plain reset would have. But the overlay's "Exit Game" path is a
+            // synchronous chain (A press -> ActivateFocusedButton -> ExitGameRequested -> kill
+            // process -> EndGameSession -> this handler, all within the same input-timer tick, no
+            // real time elapsed) - the very same A press used to confirm the exit is still
+            // physically down here more often than not. A blind reset used to read that as a
+            // brand-new press the instant this grid reappeared and fire on whatever tile happened
+            // to be focused - see GamepadEdge.Sync for why resyncing instead fixes it.
             ResetInputTrackers();
         });
     }
 
     private void ResetInputTrackers()
     {
-        _upRepeater.Reset();
-        _downRepeater.Reset();
-        _leftRepeater.Reset();
-        _rightRepeater.Reset();
-        _aEdge.Reset();
-        _bEdge.Reset();
-        _lbEdge.Reset();
-        _rbEdge.Reset();
+        var pad = GamepadService.Poll();
+        _upRepeater.Sync(pad.Up);
+        _downRepeater.Sync(pad.Down);
+        _leftRepeater.Sync(pad.Left);
+        _rightRepeater.Sync(pad.Right);
+        _aEdge.Sync(pad.A);
+        _bEdge.Sync(pad.B);
+        _lbEdge.Sync(pad.LeftShoulder);
+        _rbEdge.Sync(pad.RightShoulder);
+        _xEdge.Sync(pad.X);
+        _yEdge.Sync(pad.Y);
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -203,7 +263,13 @@ public partial class ConsoleModeWindow : Window
         // _dialogOpen additionally covers the Install/Launch confirmation popup: it polls the
         // same raw XInput state through its own input loop, so without this an A press meant for
         // its Confirm button would also reach this grid and move/relaunch selection underneath it.
-        bool inputAllowed = IsVisible && !_dialogOpen;
+        //
+        // IsThisAppForeground() is a second, independent guard on top of IsVisible - belt and
+        // braces rather than a fix for a specific observed gap, matching the same check MainWindow's
+        // own grid already requires (see the comment on gridInputAllowed there). IsVisible alone
+        // relies on Hide()/Show() always being called at exactly the right moments; this doesn't
+        // depend on that being perfectly true.
+        bool inputAllowed = IsVisible && !_dialogOpen && MainWindow.IsThisAppForeground();
 
         // Feed the repeaters/edges the real button state and gate the action instead of
         // ANDing it into "pressed" - see the equivalent comment in MainWindow.GamepadTimer_Tick
@@ -217,6 +283,8 @@ public partial class ConsoleModeWindow : Window
         _bEdge.Update(pad.B, () => { if (inputAllowed) GoBack(); });
         _lbEdge.Update(pad.LeftShoulder, () => { if (inputAllowed) CycleFilter(-1); });
         _rbEdge.Update(pad.RightShoulder, () => { if (inputAllowed) CycleFilter(1); });
+        _xEdge.Update(pad.X, () => { if (inputAllowed) CycleCategory(-1); });
+        _yEdge.Update(pad.Y, () => { if (inputAllowed) CycleCategory(1); });
     }
 
     private void Move(int columnDelta, int rowDelta)

@@ -14,6 +14,8 @@ public readonly struct GamepadSnapshot
     public bool Start { get; init; }
     public bool LeftShoulder { get; init; }
     public bool RightShoulder { get; init; }
+    public bool X { get; init; }
+    public bool Y { get; init; }
 }
 
 /// <summary>
@@ -49,8 +51,22 @@ public sealed class GamepadRepeater
         }
     }
 
-    /// <summary>Forces the next press to be treated as fresh, even if the button is still physically held.</summary>
-    public void Reset() => _held = false;
+    /// <summary>
+    /// Resyncs to the actual current physical state instead of assuming nothing's held - use this
+    /// (never a blind "assume released") whenever polling resumes after a gap this tracker wasn't
+    /// watching through (a new window/dialog opening, a hidden window reappearing). A still-held
+    /// direction from whatever input caused that transition would otherwise read as a brand-new
+    /// press the instant polling resumes and repeat immediately, instead of waiting for the normal
+    /// repeat interval like a real held direction would.
+    /// </summary>
+    public void Sync(bool currentlyPressed)
+    {
+        _held = currentlyPressed;
+        if (currentlyPressed)
+        {
+            _lastRepeat = DateTime.UtcNow;
+        }
+    }
 }
 
 /// <summary>
@@ -70,8 +86,16 @@ public sealed class GamepadEdge
         _held = pressed;
     }
 
-    /// <summary>Forces the next press to be treated as fresh, even if the button is still physically held.</summary>
-    public void Reset() => _held = false;
+    /// <summary>
+    /// Resyncs to the actual current physical state instead of assuming nothing's held - use this
+    /// (never a blind "assume released") whenever polling resumes after a gap this tracker wasn't
+    /// watching through (a new window/dialog opening, a hidden window reappearing). A blind
+    /// "assume released" here is exactly what let a button still physically held from whatever
+    /// action caused that transition (e.g. the same A press used to confirm "Exit Game" on the
+    /// pause overlay, still down the instant the launcher reappears) get misread as a brand-new
+    /// press and fire immediately - instead of correctly requiring an actual release first.
+    /// </summary>
+    public void Sync(bool currentlyPressed) => _held = currentlyPressed;
 }
 
 public static class GamepadService
@@ -108,6 +132,8 @@ public static class GamepadService
     private const ushort ButtonRightShoulder = 0x0200;
     private const ushort ButtonA = 0x1000;
     private const ushort ButtonB = 0x2000;
+    private const ushort ButtonX = 0x4000;
+    private const ushort ButtonY = 0x8000;
     // Microsoft's own recommended XInput deadzones are 7849 (left stick) and 8689 (right stick)
     // out of a max of 32767 - this was 15000, nearly double that, so the stick had to be pushed
     // almost halfway to full deflection before a direction registered at all.
@@ -119,6 +145,7 @@ public static class GamepadService
         bool up = false, down = false, left = false, right = false;
         bool a = false, b = false, back = false, start = false;
         bool leftShoulder = false, rightShoulder = false;
+        bool x = false, y = false;
 
         for (int i = 0; i < 4; i++)
         {
@@ -136,13 +163,16 @@ public static class GamepadService
             start |= (pad.wButtons & ButtonStart) != 0;
             leftShoulder |= (pad.wButtons & ButtonLeftShoulder) != 0;
             rightShoulder |= (pad.wButtons & ButtonRightShoulder) != 0;
+            x |= (pad.wButtons & ButtonX) != 0;
+            y |= (pad.wButtons & ButtonY) != 0;
         }
 
         return new GamepadSnapshot
         {
             Up = up, Down = down, Left = left, Right = right,
             A = a, B = b, Back = back, Start = start,
-            LeftShoulder = leftShoulder, RightShoulder = rightShoulder
+            LeftShoulder = leftShoulder, RightShoulder = rightShoulder,
+            X = x, Y = y
         };
     }
 }
