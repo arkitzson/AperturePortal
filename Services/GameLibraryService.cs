@@ -48,8 +48,15 @@ public class GameLibraryService
 
     public void SaveGames(IEnumerable<Game> games)
     {
-        var json = JsonSerializer.Serialize(games, new JsonSerializerOptions { WriteIndented = true });
+        var gamesList = games as IList<Game> ?? games.ToList();
+
+        var json = JsonSerializer.Serialize(gamesList, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(_libraryFile, json);
+
+        // Every path that creates/changes games (manual add/edit, Steam/Epic/GOG sync, library
+        // removal) funnels through here, so keeping categories in sync here means none of those
+        // callers need to remember to do it themselves - see CategoryService.SyncAutoCategories.
+        new CategoryService().SyncAutoCategories(gamesList);
     }
 
     /// <summary>
