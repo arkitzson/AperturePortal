@@ -35,6 +35,18 @@
 
             <!-- Content -->
             <Grid Grid.Row="1" Margin="24,20,24,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Scrollable form: the emulator panel (and Console row) added enough height that
+                     the fixed-size window could clip the button row below entirely, with no way to
+                     reach Save/Add - see the button row's own comment. Scrolling here instead of
+                     just growing the window means it can't happen again no matter what gets added
+                     to this form later. -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" Padding="0,0,10,0">
+                <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="150"/>
@@ -44,8 +56,6 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
@@ -68,15 +78,36 @@
                         <ComboBoxItem Content="Battle.net" Tag="BattleNet"/>
                         <ComboBoxItem Content="Xbox" Tag="Xbox"/>
                     </ComboBox>
+
+                    <!-- The originating console (e.g. "PlayStation 5") - separate from Platform
+                         above, which is the launcher/sync source, not where the game actually
+                         released. Typed by hand - no external metadata API drives this. -->
+                    <TextBlock Text="Console (optional)" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,6"/>
+                    <TextBox x:Name="ConsoleTextBox"/>
                 </StackPanel>
 
                 <!-- Exe path -->
                 <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Vertical" Margin="0,0,16,16">
-                    <TextBlock Text="Game Executable" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="ExePathLabel" Text="Game Executable" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
                     <DockPanel>
                         <Button Content="Browse..." MinWidth="84" DockPanel.Dock="Right" Click="BrowseExe_Click"/>
                         <TextBox x:Name="ExePathTextBox" Margin="0,0,8,0" IsReadOnly="True"/>
                     </DockPanel>
+
+                    <CheckBox x:Name="IsEmulatedCheckBox" Content="Launch through an emulator"
+                              Foreground="{StaticResource TextPrimaryBrush}" Margin="0,10,0,0"
+                              Checked="IsEmulatedCheckBox_CheckedChanged" Unchecked="IsEmulatedCheckBox_CheckedChanged"/>
+
+                    <!-- The emulator's own exe - what actually gets launched when IsEmulated is set.
+                         The game file above (relabeled "Game File" while this is checked) is passed
+                         to it as a launch argument instead of being run directly. -->
+                    <StackPanel x:Name="EmulatorPanel" Visibility="Collapsed" Margin="0,10,0,0">
+                        <TextBlock Text="Emulator Executable" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
+                        <DockPanel>
+                            <Button Content="Browse..." MinWidth="84" DockPanel.Dock="Right" Click="BrowseEmulator_Click"/>
+                            <TextBox x:Name="EmulatorPathTextBox" Margin="0,0,8,0" IsReadOnly="True"/>
+                        </DockPanel>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Cover image path -->
@@ -116,9 +147,13 @@
                     <Image x:Name="HeaderPreviewImage" Stretch="UniformToFill"/>
                 </Border>
 
-                <!-- Action buttons -->
-                <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal"
-                            HorizontalAlignment="Right" Margin="0,16,0,0">
+                </Grid>
+                </ScrollViewer>
+
+                <!-- Action buttons: a sibling of the ScrollViewer above (Auto height), not inside
+                     it - pinned to the bottom of the window so it's always reachable regardless of
+                     how tall the scrollable form content gets. -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="Cancel" Width="96" Height="34" Margin="0,0,10,0" Click="Cancel_Click"/>
                     <Button x:Name="SaveButton" Content="Add Game" Width="110" Height="34" Style="{StaticResource AccentButtonStyle}"
                             Click="Add_Click" IsDefault="True"/>

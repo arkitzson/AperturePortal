@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         mc:Ignorable="d"
-        Title="Settings" Height="700" Width="480"
+        Title="Settings" Height="440" Width="480"
         Icon="Assets/AppIcon.ico"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
@@ -29,7 +29,7 @@
                   MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <TextBlock Text="Settings" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                <Button Content="&#xE8BB;" Style="{StaticResource TitleBarCloseButtonStyle}"
+                <Button x:Name="TitleBarCloseButton" Content="&#xE8BB;" Style="{StaticResource TitleBarCloseButtonStyle}"
                         HorizontalAlignment="Right" Click="Cancel_Click"/>
             </Grid>
 
@@ -54,111 +54,27 @@
                     <TextBlock Text="SteamGridDB API Key" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
                     <TextBox x:Name="ApiKeyTextBox"/>
-                    <TextBlock Text="Used to fetch cover and header art. Get a free key at steamgriddb.com under Preferences &#8594; API."
+                    <TextBlock Text="Used by Add Games (Steam/Epic/GOG/Emulators/Installed Folders) and manual add to fetch cover and header art. Get a free key at steamgriddb.com under Preferences &#8594; API."
                                FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
                                TextWrapping="Wrap" Margin="0,8,0,0"/>
 
                     <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,20,0,20"/>
 
-                    <TextBlock Text="Steam Account" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
-
-                    <!-- Logged out -->
-                    <StackPanel x:Name="SteamLoggedOutPanel">
-                        <Button x:Name="SteamWebLoginButton" Content="Log in via Steam" Height="34"
-                                HorizontalAlignment="Left" Padding="16,0" Click="SteamWebLoginButton_Click"/>
-                        <TextBlock Text="Signs into real Steam in an embedded window - Aperture Portal never sees your password. Identifies your account and unlocks Sync Full Library, including Family Sharing games."
-                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
-                    </StackPanel>
-
-                    <!-- Logged in -->
-                    <StackPanel x:Name="SteamLoggedInPanel" Visibility="Collapsed">
-                        <DockPanel>
-                            <Button x:Name="SteamLogoutButton" Content="Log out" Height="34" MinWidth="96"
-                                    Padding="16,0" DockPanel.Dock="Right" Click="SteamLogoutButton_Click"/>
-                            <TextBlock x:Name="SteamIdText" FontSize="13" VerticalAlignment="Center"
-                                       Foreground="{StaticResource TextPrimaryBrush}"/>
-                        </DockPanel>
-                    </StackPanel>
-
-                    <TextBlock Text="Steam Web API Key (fallback for Sync Full Library)" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,16,0,6"/>
-                    <TextBox x:Name="SteamWebApiKeyTextBox"/>
-                    <TextBlock Text="Only needed if you'd rather not log in via browser, or your session expires. Get a free key at steamcommunity.com/dev/apikey - it must belong to this Steam account."
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Margin="0,8,0,0"/>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                        <Button x:Name="SyncInstalledGamesButton" Content="Sync Installed Games" Height="34"
-                                Padding="16,0" Style="{StaticResource AccentButtonStyle}"
-                                Click="SyncInstalledGamesButton_Click"/>
-                        <Button x:Name="SyncFullLibraryButton" Content="Sync Full Library" Height="34"
-                                Padding="16,0" Margin="10,0,0,0"
-                                Style="{StaticResource AccentButtonStyle}" Click="SyncFullLibraryButton_Click"/>
-                    </StackPanel>
-                    <TextBlock Text="Sync Installed Games only adds games currently installed on this PC. Sync Full Library also pulls games you own but haven't installed - log in via Steam above or use an API key."
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Margin="0,8,0,0"/>
-                    <TextBlock x:Name="SteamSyncStatusText" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Margin="0,8,0,0"/>
-
-                    <Button x:Name="RemoveSteamLibraryButton" Content="Remove Steam Library" Height="34"
-                            HorizontalAlignment="Left" Padding="16,0" Margin="0,16,0,0"
-                            Click="RemoveSteamLibraryButton_Click"/>
-                    <TextBlock Text="Removes every Steam-synced game from your library in one go - not the game files themselves, and manually-added games are untouched."
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Margin="0,8,0,0"/>
-
                     <Button x:Name="RefreshLibraryButton" Content="Refresh Library" Height="34"
-                            HorizontalAlignment="Left" Padding="16,0" Margin="0,16,0,0"
-                            Click="RefreshLibraryButton_Click"/>
+                            HorizontalAlignment="Left" Padding="16,0" Click="RefreshLibraryButton_Click"/>
                     <TextBlock Text="Reloads your library from disk and re-checks what's installed - use this if a tile looks out of date."
                                FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
                                TextWrapping="Wrap" Margin="0,8,0,0"/>
-
-                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,20,0,20"/>
-
-                    <TextBlock Text="Other Launchers" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
-
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="SyncEpicButton" Content="Sync Epic Games Library" Height="34"
-                                Padding="16,0" Style="{StaticResource AccentButtonStyle}"
-                                Click="SyncEpicButton_Click"/>
-                        <Button x:Name="RemoveEpicButton" Content="Remove" Height="34" MinWidth="80"
-                                Padding="16,0" Margin="10,0,0,0" Click="RemoveEpicLibraryButton_Click"/>
-                    </StackPanel>
-                    <TextBlock x:Name="EpicSyncStatusText" FontSize="11"
+                    <TextBlock x:Name="RefreshStatusText" FontSize="11"
                                Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Margin="0,8,0,16"/>
-
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="SyncGogButton" Content="Sync GOG Library" Height="34"
-                                Padding="16,0" Style="{StaticResource AccentButtonStyle}"
-                                Click="SyncGogButton_Click"/>
-                        <Button x:Name="RemoveGogButton" Content="Remove" Height="34" MinWidth="80"
-                                Padding="16,0" Margin="10,0,0,0" Click="RemoveGogLibraryButton_Click"/>
-                    </StackPanel>
-                    <TextBlock x:Name="GogSyncStatusText" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Margin="0,8,0,16"/>
-
-                    <TextBlock Text="Both scan for games already installed on this PC, the same way Sync Installed Games does for Steam - no login needed."
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Margin="0,0,0,16"/>
-
-                    <TextBlock Text="Battle.net and Xbox games can't be reliably auto-detected, so add them from the main window's + Add Game button instead and pick the right platform there - they'll still show the right badge on the tile."
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                               TextWrapping="Wrap"/>
+                               TextWrapping="Wrap" Margin="0,8,0,0"/>
                 </StackPanel>
                 </ScrollViewer>
 
                 <!-- Action buttons -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-                    <Button Content="Cancel" Width="96" Height="34" Margin="0,0,10,0" Click="Cancel_Click"/>
-                    <Button Content="Save" Width="110" Height="34" Style="{StaticResource AccentButtonStyle}"
+                    <Button x:Name="CancelButton" Content="Cancel" Width="96" Height="34" Margin="0,0,10,0" Click="Cancel_Click"/>
+                    <Button x:Name="SaveButton" Content="Save" Width="110" Height="34" Style="{StaticResource AccentButtonStyle}"
                             Click="Save_Click" IsDefault="True"/>
                 </StackPanel>
             </Grid>

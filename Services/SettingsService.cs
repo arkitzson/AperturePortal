@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using ApertureOS.Models;
 
 namespace ApertureOS.Services;
 
@@ -21,6 +22,15 @@ public class AppSettings
 
     /// <summary>Name of the LibraryFilter tab last selected (desktop tabs or Console Mode's LB/RB), restored on the next launch.</summary>
     public string LastLibraryFilter { get; set; } = "All";
+
+    /// <summary>Id (as a string) of the category chip last selected, empty for "All Categories" - restored the same way as LastLibraryFilter.</summary>
+    public string LastCategoryFilterId { get; set; } = string.Empty;
+
+    /// <summary>Configured emulators, each with its own exe, ROM folder, and console - used by the "Scan for Games" auto-add flow in Settings.</summary>
+    public List<EmulatorConfig> Emulators { get; set; } = new();
+
+    /// <summary>Folders the user has pointed the "Installed Games" scan at, to auto-detect PC games that aren't on Steam/Epic/GOG/Battle.net.</summary>
+    public List<string> InstalledGameFolders { get; set; } = new();
 }
 
 public class SettingsService

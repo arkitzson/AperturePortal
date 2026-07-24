@@ -35,6 +35,9 @@ public partial class AddGameWindow : Window
             ExePathTextBox.Text = gameToEdit.ExePath;
             ImagePathTextBox.Text = gameToEdit.CoverImagePath;
             HeaderImagePathTextBox.Text = gameToEdit.HeaderImagePath;
+            ConsoleTextBox.Text = gameToEdit.Console;
+            EmulatorPathTextBox.Text = gameToEdit.EmulatorPath;
+            IsEmulatedCheckBox.IsChecked = gameToEdit.IsEmulated;
             SelectPlatform(gameToEdit.Platform);
 
             SetPreview(CoverPreviewImage, gameToEdit.CoverImagePath);
@@ -78,16 +81,40 @@ public partial class AddGameWindow : Window
 
     private void BrowseExe_Click(object sender, RoutedEventArgs e)
     {
+        var isEmulated = IsEmulatedCheckBox.IsChecked == true;
         var dialog = new OpenFileDialog
         {
-            Title = "Select Game Executable",
-            Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*"
+            // ROM/disc extensions vary too widely by console to enumerate (.iso, .nsp, .chd, .n64,
+            // .gba, ...), so an emulated game file just gets a plain "show everything" filter.
+            Title = isEmulated ? "Select Game File" : "Select Game Executable",
+            Filter = isEmulated ? "All Files (*.*)|*.*" : "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*"
         };
 
         if (dialog.ShowDialog(this) == true)
         {
             ExePathTextBox.Text = dialog.FileName;
         }
+    }
+
+    private void BrowseEmulator_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select Emulator Executable",
+            Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            EmulatorPathTextBox.Text = dialog.FileName;
+        }
+    }
+
+    private void IsEmulatedCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
+    {
+        var isEmulated = IsEmulatedCheckBox.IsChecked == true;
+        EmulatorPanel.Visibility = isEmulated ? Visibility.Visible : Visibility.Collapsed;
+        ExePathLabel.Text = isEmulated ? "Game File (ROM/ISO/etc.)" : "Game Executable";
     }
 
     private void BrowseImage_Click(object sender, RoutedEventArgs e)
@@ -160,12 +187,14 @@ public partial class AddGameWindow : Window
         }
     }
 
-    private void Add_Click(object sender, RoutedEventArgs e)
+    private async void Add_Click(object sender, RoutedEventArgs e)
     {
         var name = NameTextBox.Text.Trim();
         var exePath = ExePathTextBox.Text.Trim();
         var imagePath = ImagePathTextBox.Text.Trim();
         var headerImagePath = HeaderImagePathTextBox.Text.Trim();
+        var isEmulated = IsEmulatedCheckBox.IsChecked == true;
+        var emulatorPath = EmulatorPathTextBox.Text.Trim();
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -173,13 +202,74 @@ public partial class AddGameWindow : Window
             return;
         }
 
+        if (isEmulated)
+        {
+            if (string.IsNullOrWhiteSpace(emulatorPath) || !File.Exists(emulatorPath))
+            {
+                MessageBox.Show(this, "Please select a valid emulator executable.", "Missing Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
+            {
+                MessageBox.Show(this, "Please select a valid game file.", "Missing Information", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
         // Steam-synced games store a steam://rungameid/{appid} URI rather than a real file path.
         var isSteamUri = exePath.StartsWith("steam://", StringComparison.OrdinalIgnoreCase);
 
-        if (string.IsNullOrWhiteSpace(exePath) || (!isSteamUri && !File.Exists(exePath)))
+        if (!isEmulated && (string.IsNullOrWhiteSpace(exePath) || (!isSteamUri && !File.Exists(exePath))))
         {
             MessageBox.Show(this, "Please select a valid game executable.", "Missing Information", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
+        }
+
+        // Cover art should always end up set, not just when the user explicitly clicked Find Art -
+        // if that never ran, best-effort fetch one via SteamGridDB automatically before falling
+        // back to the "you must pick one" error below.
+        if ((string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) && !string.IsNullOrWhiteSpace(name))
+        {
+            var apiKey = _settingsService.Load().SteamGridDbApiKey;
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                var originalContent = SaveButton.Content;
+                SaveButton.IsEnabled = false;
+                SaveButton.Content = "Adding...";
+                try
+                {
+                    using var steamGridService = new SteamGridDbService(apiKey);
+                    var results = await steamGridService.SearchGamesAsync(name);
+                    if (results.Count > 0)
+                    {
+                        var grids = await steamGridService.GetGridsAsync(results[0].Id);
+                        if (grids.Count > 0)
+                        {
+                            var bytes = await steamGridService.DownloadImageAsync(grids[0].Url);
+                            var extension = Path.GetExtension(new Uri(grids[0].Url).AbsolutePath);
+                            if (string.IsNullOrEmpty(extension))
+                                extension = ".png";
+
+                            var tempPath = Path.Combine(Path.GetTempPath(), $"sgdb_{Guid.NewGuid():N}{extension}");
+                            await File.WriteAllBytesAsync(tempPath, bytes);
+                            imagePath = tempPath;
+                            ImagePathTextBox.Text = tempPath;
+                            SetPreview(CoverPreviewImage, tempPath);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Best-effort - a failed automatic fetch shouldn't block saving; the existing
+                    // "please select a cover image" check right below still catches the empty case.
+                }
+                finally
+                {
+                    SaveButton.IsEnabled = true;
+                    SaveButton.Content = originalContent;
+                }
+            }
         }
 
         if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
@@ -213,6 +303,9 @@ public partial class AddGameWindow : Window
             CoverImagePath = storedImagePath,
             HeaderImagePath = storedHeaderImagePath,
             Platform = platform,
+            Console = ConsoleTextBox.Text.Trim(),
+            IsEmulated = isEmulated,
+            EmulatorPath = isEmulated ? emulatorPath : string.Empty,
             // Editing replaces the whole Game object (see MainWindow.EditGame_Click) rather than
             // mutating the existing one in place, so anything not exposed on this form has to be
             // carried over explicitly here or it silently resets - this was quietly wiping a

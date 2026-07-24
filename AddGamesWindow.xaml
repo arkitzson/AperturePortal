@@ -1,0 +1,244 @@
+<Window x:Class="ApertureOS.AddGamesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        Title="Add Games" Height="680" Width="700"
+        Icon="Assets/AppIcon.ico"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        UseLayoutRounding="True"
+        Background="{StaticResource WindowBackgroundBrush}">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Custom title bar -->
+            <Grid Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock Text="Add Games" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <Button x:Name="TitleBarCloseButton" Content="&#xE8BB;" Style="{StaticResource TitleBarCloseButtonStyle}"
+                        HorizontalAlignment="Right" Click="Close_Click"/>
+            </Grid>
+
+            <!-- Content -->
+            <Grid Grid.Row="1" Margin="24,20,24,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Source tabs - same FilterTabStyle pill row already used for the library filter
+                     tabs and category chips, so this reads as the same kind of control everywhere
+                     in the app rather than a one-off. -->
+                <!-- No IsChecked="True" here - this window's own Checked event would otherwise fire
+                     mid-InitializeComponent, before the panels declared later in this file exist
+                     (same class of bug already fixed once in ConsoleModeWindow.xaml this session).
+                     The constructor checks it explicitly once InitializeComponent has finished. -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
+                    <RadioButton x:Name="ManualTabButton" Content="Manual" Tag="Manual" GroupName="SourceTab"
+                                 Style="{StaticResource FilterTabStyle}" Checked="SourceTab_Checked"/>
+                    <RadioButton Content="Steam" Tag="Steam" GroupName="SourceTab"
+                                 Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="SourceTab_Checked"/>
+                    <RadioButton Content="Epic &amp; GOG" Tag="OtherLaunchers" GroupName="SourceTab"
+                                 Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="SourceTab_Checked"/>
+                    <RadioButton Content="Emulators" Tag="Emulators" GroupName="SourceTab"
+                                 Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="SourceTab_Checked"/>
+                    <RadioButton Content="Installed Folders" Tag="Installed" GroupName="SourceTab"
+                                 Style="{StaticResource FilterTabStyle}" Margin="8,0,0,0" Checked="SourceTab_Checked"/>
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,-16,0" Padding="0,0,16,0">
+                <Grid>
+
+                    <!-- ===================== Manual ===================== -->
+                    <StackPanel x:Name="ManualPanel" Visibility="Visible">
+                        <TextBlock Text="Add one game by hand: pick its file. Cover art is fetched automatically via SteamGridDB if you don't pick one yourself."
+                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,16"/>
+                        <Button Content="+ Add Game Manually" HorizontalAlignment="Left" Height="34" Padding="16,0"
+                                Style="{StaticResource AccentButtonStyle}" Click="AddGameManually_Click"/>
+
+                        <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,20,0,20"/>
+
+                        <TextBlock Text="Battle.net and Xbox games can't be reliably auto-detected, so add them here and pick the right platform in the form - they'll still show the right badge on the tile."
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <!-- ===================== Steam ===================== -->
+                    <StackPanel x:Name="SteamPanel" Visibility="Collapsed">
+                        <TextBlock Text="Steam Account" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
+
+                        <StackPanel x:Name="SteamLoggedOutPanel">
+                            <Button x:Name="SteamWebLoginButton" Content="Log in via Steam" Height="34"
+                                    HorizontalAlignment="Left" Padding="16,0" Click="SteamWebLoginButton_Click"/>
+                            <TextBlock Text="Signs into real Steam in an embedded window - Aperture Portal never sees your password. Identifies your account and unlocks Sync Full Library, including Family Sharing games."
+                                       FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel x:Name="SteamLoggedInPanel" Visibility="Collapsed">
+                            <DockPanel>
+                                <Button x:Name="SteamLogoutButton" Content="Log out" Height="34" MinWidth="96"
+                                        Padding="16,0" DockPanel.Dock="Right" Click="SteamLogoutButton_Click"/>
+                                <TextBlock x:Name="SteamIdText" FontSize="13" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </DockPanel>
+                        </StackPanel>
+
+                        <TextBlock Text="Steam Web API Key (fallback for Sync Full Library)" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,16,0,6"/>
+                        <TextBox x:Name="SteamWebApiKeyTextBox"/>
+                        <TextBlock Text="Only needed if you'd rather not log in via browser, or your session expires. Get a free key at steamcommunity.com/dev/apikey - it must belong to this Steam account."
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                            <Button x:Name="SyncInstalledGamesButton" Content="Sync Installed Games" Height="34"
+                                    Padding="16,0" Style="{StaticResource AccentButtonStyle}"
+                                    Click="SyncInstalledGamesButton_Click"/>
+                            <Button x:Name="SyncFullLibraryButton" Content="Sync Full Library" Height="34"
+                                    Padding="16,0" Margin="10,0,0,0"
+                                    Style="{StaticResource AccentButtonStyle}" Click="SyncFullLibraryButton_Click"/>
+                        </StackPanel>
+                        <TextBlock Text="Sync Installed Games only adds games currently installed on this PC. Sync Full Library also pulls games you own but haven't installed - log in via Steam above or use an API key. Cover art comes from your SteamGridDB key in Settings."
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <TextBlock x:Name="SteamSyncStatusText" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                        <Button x:Name="RemoveSteamLibraryButton" Content="Remove Steam Library" Height="34"
+                                HorizontalAlignment="Left" Padding="16,0" Margin="0,16,0,0"
+                                Click="RemoveSteamLibraryButton_Click"/>
+                        <TextBlock Text="Removes every Steam-synced game from your library in one go - not the game files themselves, and manually-added games are untouched."
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    </StackPanel>
+
+                    <!-- ===================== Epic & GOG ===================== -->
+                    <StackPanel x:Name="OtherLaunchersPanel" Visibility="Collapsed">
+                        <TextBlock Text="Both scan for games already installed on this PC, the same way Sync Installed Games does for Steam - no login needed. Cover art comes from your SteamGridDB key in Settings."
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="SyncEpicButton" Content="Sync Epic Games Library" Height="34"
+                                    Padding="16,0" Style="{StaticResource AccentButtonStyle}"
+                                    Click="SyncEpicButton_Click"/>
+                            <Button x:Name="RemoveEpicButton" Content="Remove" Height="34" MinWidth="80"
+                                    Padding="16,0" Margin="10,0,0,0" Click="RemoveEpicLibraryButton_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="EpicSyncStatusText" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,16"/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="SyncGogButton" Content="Sync GOG Library" Height="34"
+                                    Padding="16,0" Style="{StaticResource AccentButtonStyle}"
+                                    Click="SyncGogButton_Click"/>
+                            <Button x:Name="RemoveGogButton" Content="Remove" Height="34" MinWidth="80"
+                                    Padding="16,0" Margin="10,0,0,0" Click="RemoveGogLibraryButton_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="GogSyncStatusText" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    </StackPanel>
+
+                    <!-- ===================== Emulators ===================== -->
+                    <StackPanel x:Name="EmulatorsPanel" Visibility="Collapsed">
+                        <TextBlock Text="Point Aperture Portal at an emulator's ROM folder to scan it for games, tag them with the console you set below, and fetch art automatically - you review the results before anything's added. Uses your SteamGridDB key from Settings."
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                        <Button Content="+ Add Emulator" HorizontalAlignment="Left" Height="34" Padding="16,0"
+                                Style="{StaticResource AccentButtonStyle}" Click="AddEmulator_Click"/>
+
+                        <ItemsControl x:Name="EmulatorsItemsControl" Margin="0,12,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" Padding="12,10" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                    <Border Background="#CC000000" CornerRadius="4" Padding="5,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Console}" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding RomFolder}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
+                                                       Margin="0,4,0,10" TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="Scan for Games" Height="28" Padding="10,0" FontSize="11"
+                                                        Style="{StaticResource AccentButtonStyle}" Tag="{Binding}" Click="ScanEmulator_Click"/>
+                                                <Button Content="Edit" Height="28" Padding="10,0" FontSize="11" Margin="8,0,0,0"
+                                                        Tag="{Binding}" Click="EditEmulator_Click"/>
+                                                <Button Content="Remove" Height="28" Padding="10,0" FontSize="11" Margin="8,0,0,0"
+                                                        Tag="{Binding}" Click="RemoveEmulator_Click"/>
+                                                <Button Content="Remove Games" Height="28" Padding="10,0" FontSize="11" Margin="8,0,0,0"
+                                                        Tag="{Binding}" Click="RemoveEmulatorGames_Click"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="EmulatorScanStatusText" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- ===================== Installed Folders ===================== -->
+                    <StackPanel x:Name="InstalledPanel" Visibility="Collapsed">
+                        <TextBlock Text="Point Aperture Portal at folders where you keep PC games that aren't on Steam/Epic/GOG/Battle.net - it scans for executables and lets you review before adding anything. Uses your SteamGridDB key from Settings for cover art."
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                        <Button Content="+ Add Folder" HorizontalAlignment="Left" Height="34" Padding="16,0" Click="AddInstalledFolder_Click"/>
+
+                        <ItemsControl x:Name="InstalledFoldersItemsControl" Margin="0,12,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <Button Content="Remove" Height="28" Padding="10,0" FontSize="11" DockPanel.Dock="Right"
+                                                Tag="{Binding}" Click="RemoveInstalledFolder_Click"/>
+                                        <TextBlock Text="{Binding}" FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <Button Content="Scan for Games" Height="34" Padding="16,0"
+                                    Style="{StaticResource AccentButtonStyle}" Click="ScanInstalledFolders_Click"/>
+                            <Button Content="Remove Games" Height="34" Padding="16,0" Margin="10,0,0,0"
+                                    Click="RemoveInstalledFolderGames_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="InstalledScanStatusText" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    </StackPanel>
+
+                </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

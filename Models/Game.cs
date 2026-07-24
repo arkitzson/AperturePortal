@@ -38,6 +38,18 @@ public class Game : INotifyPropertyChanged
     /// <summary>When this game was last launched from ApertureOS, or null if never - persisted, unlike the runtime-only install-state fields below.</summary>
     public DateTime? LastPlayedAt { get; set; }
 
+    /// <summary>The specific console this copy of the game originally released on (e.g. "PlayStation 5"), distinct from Platform, which is the launcher/sync source, not the originating console. Typed in manually, or carried over from an Emulator config's Console field for scanned ROMs - there's no external metadata API driving this (SteamGridDB is art-only, no platform data). Empty until set.</summary>
+    public string Console { get; set; } = string.Empty;
+
+    /// <summary>Custom category membership (many-to-many) - Guids into categories.json. Auto-derived category membership (console or platform) is NOT tracked here; see GameCategory.Kind and CategoryService.</summary>
+    public List<Guid> CategoryIds { get; set; } = new();
+
+    /// <summary>True if this game is launched through an emulator rather than run directly.</summary>
+    public bool IsEmulated { get; set; }
+
+    /// <summary>The emulator's own executable - only meaningful when IsEmulated is true. ExePath still holds the game file itself (ROM/ISO/etc.) in that case, same "the thing this launch is about" convention it already uses for Steam URIs; it's passed to EmulatorPath as a launch argument instead of being executed directly.</summary>
+    public string EmulatorPath { get; set; } = string.Empty;
+
     private bool _isInstalled = true;
 
     /// <summary>
